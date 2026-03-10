@@ -50,6 +50,7 @@ export const projects = pgTable("projects", {
   mixedAudioPath: text("mixed_audio_path"),
   clearVideoPath: text("clear_video_path"),
   captionVideoPath: text("caption_video_path"),
+  captionStyle: text("caption_style").default("capcut_green"),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 

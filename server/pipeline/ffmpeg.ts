@@ -1,7 +1,9 @@
-import { exec, execSync } from "child_process";
+import { exec } from "child_process";
 import { promisify } from "util";
 import path from "path";
 import fs from "fs";
+import type { CaptionStyle } from "../../shared/caption-styles";
+import { getCaptionStyleById } from "../../shared/caption-styles";
 
 const execAsync = promisify(exec);
 
@@ -134,17 +136,18 @@ export async function createSandwichVideo(
       `-filter_complex`,
       `"[1:v]scale=120:-1[logo];`,
       `[0:v][logo]overlay=W-w-30:30,`,
-      `subtitles='${subtitlePath.replace(/'/g, "\\'")}':force_style='FontSize=22,PrimaryColour=&HFFFFFF,OutlineColour=&H000000,BorderStyle=3,Outline=2,Shadow=1,Alignment=2,MarginV=120'[out]"`,
+      `ass='${subtitlePath.replace(/'/g, "\\'")}'[out]"`,
       `-map "[out]" -map 0:a`,
       `-c:v libx264 -preset medium -crf 20`,
       `-c:a copy`,
       `"${outputCaptionPath}"`,
     ].join(" ");
   } else if (subtitlePath) {
+    const escapedSubPath = subtitlePath.replace(/\\/g, "/").replace(/'/g, "\\'").replace(/:/g, "\\:");
     captionCmd = [
       "ffmpeg -y",
       `-i "${outputClearPath}"`,
-      `-vf "subtitles='${subtitlePath.replace(/'/g, "\\'")}':force_style='FontSize=22,PrimaryColour=&HFFFFFF,OutlineColour=&H000000,BorderStyle=3,Outline=2,Shadow=1,Alignment=2,MarginV=120'"`,
+      `-vf ass='${escapedSubPath}'`,
       `-c:v libx264 -preset medium -crf 20`,
       `-c:a copy`,
       `"${outputCaptionPath}"`,
@@ -157,40 +160,13 @@ export async function createSandwichVideo(
   await execAsync(captionCmd, { timeout: 600000 });
 }
 
-export function generateSRT(
-  words: Array<{ word: string; start: number; end: number }>
-): string {
-  const lines: string[] = [];
-  let index = 1;
-  const chunkSize = 5;
-
-  for (let i = 0; i < words.length; i += chunkSize) {
-    const chunk = words.slice(i, i + chunkSize);
-    const startTime = chunk[0].start;
-    const endTime = chunk[chunk.length - 1].end;
-    const text = chunk.map((w) => w.word).join(" ");
-
-    lines.push(`${index}`);
-    lines.push(`${formatSRTTime(startTime)} --> ${formatSRTTime(endTime)}`);
-    lines.push(text);
-    lines.push("");
-    index++;
-  }
-
-  return lines.join("\n");
-}
-
-function formatSRTTime(seconds: number): string {
-  const hrs = Math.floor(seconds / 3600);
-  const mins = Math.floor((seconds % 3600) / 60);
-  const secs = Math.floor(seconds % 60);
-  const ms = Math.round((seconds % 1) * 1000);
-  return `${String(hrs).padStart(2, "0")}:${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")},${String(ms).padStart(3, "0")}`;
-}
-
 export function generateASS(
-  words: Array<{ word: string; start: number; end: number }>
+  words: Array<{ word: string; start: number; end: number }>,
+  styleId: string = "capcut_green"
 ): string {
+  const style = getCaptionStyleById(styleId);
+  const boldFlag = style.bold ? -1 : 0;
+
   const header = `[Script Info]
 Title: Dynamic Subtitles
 ScriptType: v4.00+
@@ -201,8 +177,7 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,Arial,48,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,1,0,0,0,100,100,0,0,1,3,1,2,40,40,200,1
-Style: Highlight,Arial,52,&H0000FFFF,&H000000FF,&H00000000,&H80000000,1,0,0,0,105,105,0,0,1,3,1,2,40,40,200,1
+Style: Default,${style.fontName},${style.fontSize},${style.primaryColor},&H000000FF,${style.outlineColor},${style.backColor},${boldFlag},0,0,0,100,100,2,0,1,${style.outlineWidth},${style.shadow},2,40,40,180,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -213,23 +188,55 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
   for (let i = 0; i < words.length; i += chunkSize) {
     const chunk = words.slice(i, i + chunkSize);
-    const startTime = chunk[0].start;
-    const endTime = chunk[chunk.length - 1].end;
+    const chunkStart = chunk[0].start;
+    const chunkEnd = chunk[chunk.length - 1].end;
 
-    for (let j = 0; j < chunk.length; j++) {
-      const w = chunk[j];
-      const highlightedText = chunk
-        .map((cw, idx) => {
-          if (idx === j) {
-            return `{\\c&H00FFFF&\\fscx110\\fscy110}${cw.word}{\\c&HFFFFFF&\\fscx100\\fscy100}`;
-          }
-          return cw.word;
-        })
-        .join(" ");
+    for (let wi = 0; wi < chunk.length; wi++) {
+      const word = chunk[wi];
+      const segStart = word.start;
+      const segEnd = word.end;
+
+      const textParts = chunk.map((cw, idx) => {
+        const w = style.uppercase ? cw.word.toUpperCase() : cw.word;
+        if (idx === wi) {
+          return `{\\c${style.highlightColor}\\fscx${style.scaleOnHighlight}\\fscy${style.scaleOnHighlight}}${w}{\\c${style.primaryColor}\\fscx100\\fscy100}`;
+        }
+        return w;
+      });
+
+      const line1Words = textParts.slice(0, Math.ceil(textParts.length / 2));
+      const line2Words = textParts.slice(Math.ceil(textParts.length / 2));
+      let text: string;
+      if (line2Words.length > 0) {
+        text = line1Words.join(" ") + "\\N" + line2Words.join(" ");
+      } else {
+        text = line1Words.join(" ");
+      }
 
       events.push(
-        `Dialogue: 0,${formatASSTime(w.start)},${formatASSTime(w.end)},Default,,0,0,0,,${highlightedText}`
+        `Dialogue: 0,${formatASSTime(segStart)},${formatASSTime(segEnd)},Default,,0,0,0,,${text}`
       );
+    }
+
+    if (chunk.length > 1) {
+      const lastWordEnd = chunk[chunk.length - 1].end;
+      const nextChunkStart = i + chunkSize < words.length ? words[i + chunkSize].start : lastWordEnd + 0.1;
+      const gapEnd = Math.min(nextChunkStart, lastWordEnd + 0.3);
+
+      if (gapEnd > lastWordEnd + 0.01) {
+        const allWords = chunk.map((cw) => (style.uppercase ? cw.word.toUpperCase() : cw.word));
+        const line1 = allWords.slice(0, Math.ceil(allWords.length / 2));
+        const line2 = allWords.slice(Math.ceil(allWords.length / 2));
+        let holdText: string;
+        if (line2.length > 0) {
+          holdText = line1.join(" ") + "\\N" + line2.join(" ");
+        } else {
+          holdText = line1.join(" ");
+        }
+        events.push(
+          `Dialogue: 0,${formatASSTime(lastWordEnd)},${formatASSTime(gapEnd)},Default,,0,0,0,,${holdText}`
+        );
+      }
     }
   }
 

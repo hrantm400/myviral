@@ -30,6 +30,7 @@ import {
   Clock,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { CaptionStyleSelector } from "@/components/caption-styles";
 import type { Project } from "@shared/schema";
 
 const PIPELINE_STEPS = [
@@ -357,6 +358,7 @@ export default function Home() {
   const [voiceover, setVoiceover] = useState<File | null>(null);
   const [bgMusic, setBgMusic] = useState<File | null>(null);
   const [logo, setLogo] = useState<File | null>(null);
+  const [captionStyle, setCaptionStyle] = useState("capcut_green");
 
   const { data: projects = [], isLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
@@ -371,6 +373,7 @@ export default function Home() {
       formData.append("bgMusic", bgMusic!);
       if (logo) formData.append("logo", logo);
       if (projectName) formData.append("name", projectName);
+      formData.append("captionStyle", captionStyle);
 
       const res = await fetch("/api/projects/upload", {
         method: "POST",
@@ -390,6 +393,7 @@ export default function Home() {
       setBgMusic(null);
       setLogo(null);
       setProjectName("");
+      setCaptionStyle("capcut_green");
       toast({ title: "Project created", description: "Pipeline processing has started" });
     },
     onError: (error: Error) => {
@@ -504,6 +508,11 @@ export default function Home() {
                   description="PNG logo (optional)"
                 />
               </div>
+
+              <CaptionStyleSelector
+                selected={captionStyle}
+                onSelect={setCaptionStyle}
+              />
 
               <div className="flex items-center gap-4 pt-2">
                 <Button

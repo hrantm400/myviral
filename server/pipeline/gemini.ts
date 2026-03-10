@@ -14,6 +14,53 @@ const ai = new GoogleGenAI({
   },
 });
 
+function fixWordTimestamps(
+  words: Array<{ word: string; start: number; end: number }>,
+  audioDuration: number
+): Array<{ word: string; start: number; end: number }> {
+  if (words.length === 0) return words;
+
+  const fixed = words.map((w) => ({
+    word: w.word,
+    start: Math.round(w.start * 100) / 100,
+    end: Math.round(w.end * 100) / 100,
+  }));
+
+  for (let i = 0; i < fixed.length; i++) {
+    if (fixed[i].end <= fixed[i].start) {
+      fixed[i].end = fixed[i].start + 0.15;
+    }
+    fixed[i].start = Math.max(0, fixed[i].start);
+    fixed[i].end = Math.min(audioDuration, fixed[i].end);
+  }
+
+  for (let i = 1; i < fixed.length; i++) {
+    if (fixed[i].start < fixed[i - 1].end) {
+      fixed[i].start = fixed[i - 1].end + 0.01;
+    }
+    if (fixed[i].end <= fixed[i].start) {
+      fixed[i].end = fixed[i].start + 0.15;
+    }
+  }
+
+  for (let i = 0; i < fixed.length - 1; i++) {
+    const gap = fixed[i + 1].start - fixed[i].end;
+    if (gap > 0 && gap < 0.3) {
+      fixed[i].end = fixed[i + 1].start;
+    }
+  }
+
+  for (const w of fixed) {
+    w.start = Math.max(0, Math.min(w.start, audioDuration - 0.1));
+    w.end = Math.min(w.end, audioDuration);
+    if (w.end <= w.start) {
+      w.end = Math.min(w.start + 0.15, audioDuration);
+    }
+  }
+
+  return fixed;
+}
+
 export async function transcribeAudio(
   audioPath: string
 ): Promise<{
@@ -44,14 +91,20 @@ export async function transcribeAudio(
             },
           },
           {
-            text: `Transcribe this audio with word-level timestamps. Return ONLY a valid JSON object with this exact structure, no markdown formatting:
-{"text": "full transcription text", "words": [{"word": "first", "start": 0.0, "end": 0.3}, {"word": "second", "start": 0.35, "end": 0.6}]}
+            text: `You are a professional audio transcription engine. Transcribe this audio file with PRECISE word-level timestamps.
 
-Rules:
-- Every word must have a start and end timestamp in seconds
-- Timestamps must be accurate and sequential
-- Include ALL words spoken in the audio
-- Return ONLY the JSON, no explanation or markdown code blocks`,
+CRITICAL RULES:
+1. Listen to the EXACT timing of each word in the audio — do NOT estimate or approximate
+2. Each word must have start and end timestamps in SECONDS with 2 decimal places (centisecond precision)
+3. Timestamps MUST be monotonically increasing — each word starts after the previous word ends
+4. The first word's start time should match when speech actually begins in the audio
+5. The last word's end time should match when speech actually ends in the audio
+6. Total audio duration is approximately ${duration.toFixed(2)} seconds — do not exceed this
+7. Pay special attention to pauses between sentences — reflect them accurately in timestamp gaps
+8. Include EVERY spoken word, no omissions
+
+Return ONLY a valid JSON object (no markdown, no code blocks, no explanation):
+{"text": "full transcription here", "words": [{"word": "first", "start": 0.10, "end": 0.35}, {"word": "second", "start": 0.40, "end": 0.70}]}`,
           },
         ],
       },
@@ -66,9 +119,12 @@ Rules:
   }
 
   const parsed = JSON.parse(jsonMatch[0]);
+  const rawWords = parsed.words || [];
+  const fixedWords = fixWordTimestamps(rawWords, duration);
+
   return {
     duration,
-    words: parsed.words || [],
+    words: fixedWords,
     text: parsed.text || "",
   };
 }
@@ -100,21 +156,23 @@ export async function curateVideoSegments(
     .sort()
     .slice(0, 15);
 
-  const frameParts = frameFiles.map((f, i) => {
-    const frameData = fs.readFileSync(path.join(framesDir, f));
-    const timestamp = i * frameInterval;
-    return [
-      {
-        inlineData: {
-          mimeType: "image/jpeg",
-          data: frameData.toString("base64"),
+  const frameParts = frameFiles
+    .map((f, i) => {
+      const frameData = fs.readFileSync(path.join(framesDir, f));
+      const timestamp = i * frameInterval;
+      return [
+        {
+          inlineData: {
+            mimeType: "image/jpeg" as const,
+            data: frameData.toString("base64"),
+          },
         },
-      },
-      {
-        text: `Frame at ${formatTimestamp(timestamp)}`,
-      },
-    ];
-  }).flat();
+        {
+          text: `Frame at ${formatTimestamp(timestamp)}`,
+        },
+      ];
+    })
+    .flat();
 
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash",
@@ -163,11 +221,21 @@ Requirements:
   try {
     const segments = JSON.parse(jsonMatch[0]);
     if (!Array.isArray(segments) || segments.length === 0) {
-      return [{ start: "00:00:00", end: formatTimestamp(Math.min(targetDuration, videoDuration)) }];
+      return [
+        {
+          start: "00:00:00",
+          end: formatTimestamp(Math.min(targetDuration, videoDuration)),
+        },
+      ];
     }
     return segments;
   } catch {
-    return [{ start: "00:00:00", end: formatTimestamp(Math.min(targetDuration, videoDuration)) }];
+    return [
+      {
+        start: "00:00:00",
+        end: formatTimestamp(Math.min(targetDuration, videoDuration)),
+      },
+    ];
   }
 }
 

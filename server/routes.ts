@@ -75,6 +75,8 @@ export async function registerRoutes(
           (req.body.name as string) ||
           path.basename(files.sourceVideo[0].originalname, path.extname(files.sourceVideo[0].originalname));
 
+        const captionStyle = (req.body.captionStyle as string) || "capcut_green";
+
         const project = await storage.createProject({
           name: projectName,
           status: "processing",
@@ -84,6 +86,7 @@ export async function registerRoutes(
           voiceoverPath: files.voiceover[0].path,
           bgMusicPath: files.bgMusic[0].path,
           logoPath: files.logo?.[0]?.path || null,
+          captionStyle,
         });
 
         runPipeline(project.id).catch((err) => {

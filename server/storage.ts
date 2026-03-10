@@ -1,5 +1,4 @@
 import { type Project, type InsertProject } from "@shared/schema";
-import { randomUUID } from "crypto";
 
 export interface IStorage {
   createProject(project: InsertProject): Promise<Project>;
@@ -37,6 +36,7 @@ export class MemStorage implements IStorage {
       mixedAudioPath: project.mixedAudioPath || null,
       clearVideoPath: project.clearVideoPath || null,
       captionVideoPath: project.captionVideoPath || null,
+      captionStyle: project.captionStyle || "capcut_green",
       createdAt: new Date(),
     };
     this.projects.set(id, newProject);

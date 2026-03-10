@@ -1,7 +1,6 @@
 import { storage } from "../storage";
 import { transcribeAudio, curateVideoSegments } from "./gemini";
 import {
-  getMediaDuration,
   mixAudio,
   extractVideoSegments,
   createSandwichVideo,
@@ -9,7 +8,6 @@ import {
 } from "./ffmpeg";
 import path from "path";
 import fs from "fs";
-import type { WordTimestamp, VideoTimecode } from "@shared/schema";
 
 const UPLOAD_DIR = path.join(process.cwd(), "uploads");
 const OUTPUT_DIR = path.join(process.cwd(), "outputs");
@@ -98,12 +96,14 @@ export async function runPipeline(projectId: number): Promise<void> {
 
     await updateProject(projectId, "video_composition", 70);
 
-    const assContent = generateASS(transcription.words);
+    const captionStyleId = project.captionStyle || "capcut_green";
+    const assContent = generateASS(transcription.words, captionStyleId);
     const subtitlePath = path.join(projectDir, "subtitles.ass");
     fs.writeFileSync(subtitlePath, assContent);
 
-    const clearVideoPath = path.join(projectDir, `${project.name}_clear.mp4`);
-    const captionVideoPath = path.join(projectDir, `${project.name}_caption.mp4`);
+    const safeName = project.name.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 50);
+    const clearVideoPath = path.join(projectDir, `${safeName}_clear.mp4`);
+    const captionVideoPath = path.join(projectDir, `${safeName}_caption.mp4`);
 
     await updateProject(projectId, "subtitle_overlay", 75);
 
