@@ -446,28 +446,13 @@ export default function Home() {
   const canSubmit = sourceVideo && voiceover && bgMusic && !uploadMutation.isPending;
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary to-violet-600 flex items-center justify-center">
-              <Wand2 className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold tracking-tight">ReelForge</h1>
-              <p className="text-xs text-muted-foreground">
-                AI-Powered Vertical Video Creator
-              </p>
-            </div>
-          </div>
-          <Badge variant="outline" className="text-xs gap-1.5">
-            <Sparkles className="w-3 h-3" />
-            Gemini AI
-          </Badge>
-        </div>
+    <div className="flex-1 w-full max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">Classic Auto-Shorts</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Upload horizontal videos to create 9:16 blurred background sandwich reels with AI subtitles.
+        </p>
       </div>
-
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -685,7 +670,6 @@ export default function Home() {
             </div>
           </div>
         </Card>
-      </main>
     </div>
   );
 }

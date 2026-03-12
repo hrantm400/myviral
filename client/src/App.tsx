@@ -5,13 +5,24 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
+import SmartCrop from "@/pages/smart-crop";
+import AutoDucking from "@/pages/auto-ducking";
+import Highlights from "@/pages/highlights";
+import StyleStudio from "@/pages/style-studio";
+import { MainLayout } from "@/components/layout";
 
 function Router() {
   return (
-    <Switch>
-      <Route path="/" component={Home} />
-      <Route component={NotFound} />
-    </Switch>
+    <MainLayout>
+      <Switch>
+        <Route path="/" component={Home} />
+        <Route path="/smart-crop" component={SmartCrop} />
+        <Route path="/auto-ducking" component={AutoDucking} />
+        <Route path="/highlights" component={Highlights} />
+        <Route path="/style-studio" component={StyleStudio} />
+        <Route component={NotFound} />
+      </Switch>
+    </MainLayout>
   );
 }
 
