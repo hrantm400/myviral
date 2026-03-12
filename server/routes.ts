@@ -36,8 +36,8 @@ export async function registerRoutes(
     try {
       const projects = await storage.getAllProjects();
       res.json(projects);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
+    } catch (error) {
+      res.status(500).json({ error: error instanceof Error ? error.message : "Unknown error" });
     }
   });
 
@@ -48,8 +48,8 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Project not found" });
       }
       res.json(project);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
+    } catch (error) {
+      res.status(500).json({ error: error instanceof Error ? error.message : "Unknown error" });
     }
   });
 
@@ -94,8 +94,8 @@ export async function registerRoutes(
         });
 
         res.status(201).json(project);
-      } catch (error: any) {
-        res.status(500).json({ error: error.message });
+      } catch (error) {
+        res.status(500).json({ error: error instanceof Error ? error.message : "Unknown error" });
       }
     }
   );
@@ -105,8 +105,8 @@ export async function registerRoutes(
       const id = parseInt(req.params.id);
       await storage.deleteProject(id);
       res.status(204).send();
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
+    } catch (error) {
+      res.status(500).json({ error: error instanceof Error ? error.message : "Unknown error" });
     }
   });
 
@@ -133,8 +133,8 @@ export async function registerRoutes(
 
       const readStream = fs.createReadStream(filePath);
       readStream.pipe(res);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
+    } catch (error) {
+      res.status(500).json({ error: error instanceof Error ? error.message : "Unknown error" });
     }
   });
 
