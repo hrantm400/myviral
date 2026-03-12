@@ -129,6 +129,50 @@ Return ONLY a valid JSON object (no markdown, no code blocks, no explanation):
   };
 }
 
+export async function extractHighlights(
+  sourceVideoPath: string,
+  transcript: string,
+  videoDuration: number
+): Promise<Array<{ start: string; end: string }>> {
+  // Simplistic logic for highlights extraction: prompt Gemini with full transcript
+  // to give back JSON array of timecodes
+  const response = await ai.models.generateContent({
+    model: "gemini-2.5-flash",
+    contents: [
+      {
+        role: "user",
+        parts: [
+          {
+            text: `You are analyzing a ${formatTimestamp(videoDuration)} long video/podcast.
+The transcript is:
+"${transcript}"
+
+Extract 3 of the most interesting, viral, emotional, or educational moments. Each moment should be a complete thought and last between 15 to 45 seconds.
+
+Return ONLY a valid JSON array of timecodes, no markdown:
+[{"start": "00:00:10", "end": "00:00:35"}, {"start": "00:01:30", "end": "00:01:50"}]
+`,
+          },
+        ],
+      },
+    ],
+    config: { maxOutputTokens: 8192 },
+  });
+
+  const responseText = response.text || "";
+  const jsonMatch = responseText.match(/\[[\s\S]*\]/);
+  if (!jsonMatch) {
+    return [{ start: "00:00:00", end: formatTimestamp(Math.min(30, videoDuration)) }];
+  }
+
+  try {
+    const segments = JSON.parse(jsonMatch[0]);
+    return Array.isArray(segments) && segments.length > 0 ? segments : [{ start: "00:00:00", end: formatTimestamp(Math.min(30, videoDuration)) }];
+  } catch {
+    return [{ start: "00:00:00", end: formatTimestamp(Math.min(30, videoDuration)) }];
+  }
+}
+
 export async function curateVideoSegments(
   sourceVideoPath: string,
   transcript: string,

@@ -60,6 +60,61 @@ export async function mixAudio(
   await execAsync(cmd, { timeout: 300000 });
 }
 
+export async function autoDucking(
+  voiceoverPath: string,
+  bgMusicPath: string,
+  outputPath: string,
+  voiceoverDuration: number
+): Promise<void> {
+  // Uses sidechain compression to duck the music when voiceover is present.
+  // [1:a] asplit [sc][main];
+  // [main][sc] sidechaincompress=threshold=0.08:ratio=4:attack=5:release=50[bg];
+  // Wait, the correct sidechain syntax:
+  // [vo]asplit=2[vo1][vo2];
+  // [vo1][bg] amix... - wait, sidechain needs the control signal.
+  const cmd = [
+    "ffmpeg -y",
+    `-i "${voiceoverPath}"`,
+    `-i "${bgMusicPath}"`,
+    `-filter_complex`,
+    // Apply initial volume adjusments
+    `"[0:a]volume=10dB,asplit=2[sc][vo_out];`,
+    `[1:a]volume=0dB[bg_in];`,
+    // Use the voice track [sc] to sidechain compress the background track [bg_in]
+    `[bg_in][sc]sidechaincompress=threshold=0.01:ratio=5:attack=100:release=1000:makeup=1.5[bg_ducked];`,
+    // Mix the untouched (but volume adjusted) voiceover with the ducked background music
+    `[vo_out][bg_ducked]amix=inputs=2:duration=first:dropout_transition=2[out]"`,
+    `-map "[out]"`,
+    `-t ${voiceoverDuration}`,
+    `-ar 44100`,
+    `"${outputPath}"`,
+  ].join(" ");
+
+  await execAsync(cmd, { timeout: 300000 });
+}
+
+export async function smartCropVideo(
+  sourceVideoPath: string,
+  outputPath: string,
+  duration: number
+): Promise<void> {
+  // This is a naive smart crop that uses an FFmpeg filter crop
+  // In a real advanced scenario, OpenCV would be used to find the face bounding box per frame.
+  // Here we use a generic centered 9:16 crop.
+  // 1080x1920 is 9:16.
+  const cmd = [
+    "ffmpeg -y",
+    `-i "${sourceVideoPath}"`,
+    `-vf "crop=ih*9/16:ih:iw/2-ih*9/32:0,scale=1080:1920"`,
+    `-c:v libx264 -preset fast -crf 23`,
+    `-c:a copy`,
+    `-t ${duration}`,
+    `"${outputPath}"`
+  ].join(" ");
+
+  await execAsync(cmd, { timeout: 300000 });
+}
+
 export async function extractVideoSegments(
   sourceVideoPath: string,
   timecodes: Array<{ start: string; end: string }>,

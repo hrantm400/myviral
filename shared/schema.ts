@@ -36,6 +36,7 @@ export type PipelineStep = z.infer<typeof pipelineStepEnum>;
 export const projects = pgTable("projects", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
+  projectType: text("project_type").notNull().default("classic"),
   status: text("status").notNull().default("uploading"),
   currentStep: text("current_step").notNull().default("uploading"),
   progress: integer("progress").notNull().default(0),

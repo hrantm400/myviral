@@ -1,29 +1,74 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { Wand2, AlertCircle } from "lucide-react";
+import { Wand2, Video, Loader2, Play } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Highlights() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [projectName, setProjectName] = useState("");
+  const [sourceVideo, setSourceVideo] = useState<File | null>(null);
+
+  const uploadMutation = useMutation({
+    mutationFn: async () => {
+      const formData = new FormData();
+      formData.append("sourceVideo", sourceVideo!);
+      if (projectName) formData.append("name", projectName);
+
+      const res = await fetch("/api/projects/highlights", {
+        method: "POST",
+        body: formData,
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      setSourceVideo(null);
+      setProjectName("");
+      toast({ title: "Pipeline started", description: "Highlights processing in background" });
+    },
+    onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  const canSubmit = sourceVideo && !uploadMutation.isPending;
+
   return (
     <div className="flex-1 w-full max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8">
       <div className="mb-8">
         <h1 className="text-2xl font-bold tracking-tight text-foreground">Podcast Highlights</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Batch process long podcasts or streams. AI will automatically find and cut 5-10 of the best viral moments.
+          Batch process long podcasts or streams. AI will automatically find and cut the best viral moments.
         </p>
       </div>
 
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-        <Card className="p-12 text-center border-dashed border-2 flex flex-col items-center justify-center">
-          <div className="w-16 h-16 rounded-2xl bg-violet-500/10 flex items-center justify-center mb-6">
-            <Wand2 className="w-8 h-8 text-violet-500" />
-          </div>
-          <h2 className="text-xl font-bold mb-2">Coming Soon</h2>
-          <p className="text-muted-foreground max-w-md mx-auto mb-6">
-            This powerful batch processing tool uses Gemini to analyze hour-long transcripts, score emotional peaks, and extract viral clips automatically.
-          </p>
-          <div className="flex items-center gap-2 text-sm text-amber-500 bg-amber-500/10 px-4 py-2 rounded-lg">
-            <AlertCircle className="w-4 h-4" />
-            <span>AI extraction model is being refined.</span>
+        <Card className="p-6">
+          <div className="space-y-6">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Project Name</label>
+              <Input
+                value={projectName}
+                onChange={(e) => setProjectName(e.target.value)}
+                placeholder="Highlights Output"
+                className="max-w-md"
+              />
+            </div>
+
+            <div className="border-2 border-dashed rounded-xl p-6 flex flex-col items-center max-w-md">
+              <Video className="w-8 h-8 mb-3 text-muted-foreground" />
+              <span className="text-sm font-medium mb-2">Long Source Video</span>
+              <input type="file" accept="video/*" onChange={e => setSourceVideo(e.target.files?.[0] || null)} className="text-xs" />
+            </div>
+
+            <Button onClick={() => uploadMutation.mutate()} disabled={!canSubmit} className="w-full sm:w-auto">
+              {uploadMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Play className="w-4 h-4 mr-2" />}
+              Extract Highlights
+            </Button>
           </div>
         </Card>
       </motion.div>

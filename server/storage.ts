@@ -16,6 +16,7 @@ export class DatabaseStorage implements IStorage {
   async createProject(project: InsertProject): Promise<Project> {
     const [newProject] = await db.insert(projects).values({
       name: project.name || "Untitled Project",
+      projectType: project.projectType || "classic",
       status: project.status || "uploading",
       currentStep: project.currentStep || "uploading",
       progress: project.progress || 0,
