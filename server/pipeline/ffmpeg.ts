@@ -1,4 +1,4 @@
-import { exec } from "child_process";
+import { exec, execFile } from "child_process";
 import { promisify } from "util";
 import path from "path";
 import fs from "fs";
@@ -6,6 +6,7 @@ import type { CaptionStyle } from "../../shared/caption-styles";
 import { getCaptionStyleById } from "../../shared/caption-styles";
 
 const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 export async function getMediaDuration(filePath: string): Promise<number> {
   const { stdout } = await execAsync(
@@ -71,17 +72,19 @@ export async function extractVideoSegments(
     const tc = timecodes[i];
     const outPath = path.join(outputDir, `segment_${i}.mp4`);
 
-    const cmd = [
-      "ffmpeg -y",
-      `-ss ${tc.start}`,
-      `-to ${tc.end}`,
-      `-i "${sourceVideoPath}"`,
-      `-c:v libx264 -preset fast -crf 23`,
-      `-an`,
-      `"${outPath}"`,
-    ].join(" ");
+    const args = [
+      "-y",
+      "-ss", tc.start,
+      "-to", tc.end,
+      "-i", sourceVideoPath,
+      "-c:v", "libx264",
+      "-preset", "fast",
+      "-crf", "23",
+      "-an",
+      outPath,
+    ];
 
-    await execAsync(cmd, { timeout: 120000 });
+    await execFileAsync("ffmpeg", args, { timeout: 120000 });
     segmentPaths.push(outPath);
   }
 
