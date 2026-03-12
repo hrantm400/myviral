@@ -243,10 +243,12 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
   return header + events.join("\n") + "\n";
 }
 
-function formatASSTime(seconds: number): string {
-  const hrs = Math.floor(seconds / 3600);
-  const mins = Math.floor((seconds % 3600) / 60);
-  const secs = Math.floor(seconds % 60);
-  const cs = Math.round((seconds % 1) * 100);
+export function formatASSTime(seconds: number): string {
+  // Round to nearest centisecond first to handle 0.999 cases correctly
+  const roundedSeconds = Math.round(seconds * 100) / 100;
+  const hrs = Math.floor(roundedSeconds / 3600);
+  const mins = Math.floor((roundedSeconds % 3600) / 60);
+  const secs = Math.floor(roundedSeconds % 60);
+  const cs = Math.round((roundedSeconds % 1) * 100);
   return `${hrs}:${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}.${String(cs).padStart(2, "0")}`;
 }
