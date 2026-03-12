@@ -8,6 +8,7 @@ import {
 } from "./ffmpeg";
 import path from "path";
 import fs from "fs";
+import { broadcastProjectUpdate } from "../websocket";
 
 const UPLOAD_DIR = path.join(process.cwd(), "uploads");
 const OUTPUT_DIR = path.join(process.cwd(), "outputs");
@@ -26,12 +27,16 @@ async function updateProject(
   progress: number,
   extra: Record<string, any> = {}
 ) {
-  await storage.updateProject(id, {
+  const updatedProject = await storage.updateProject(id, {
     currentStep: step,
     progress,
     status: step === "failed" ? "failed" : step === "complete" ? "complete" : "processing",
     ...extra,
   });
+
+  if (updatedProject) {
+    broadcastProjectUpdate(updatedProject);
+  }
 }
 
 export async function runPipeline(projectId: number): Promise<void> {

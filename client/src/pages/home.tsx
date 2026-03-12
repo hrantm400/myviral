@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -362,8 +362,37 @@ export default function Home() {
 
   const { data: projects = [], isLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
-    refetchInterval: 3000,
   });
+
+  useEffect(() => {
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const wsUrl = `${protocol}//${window.location.host}/ws`;
+
+    let socket = new WebSocket(wsUrl);
+
+    socket.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "PROJECT_UPDATE" && data.project) {
+          queryClient.setQueryData<Project[]>(["/api/projects"], (old) => {
+            if (!old) return [data.project];
+            const exists = old.find((p) => p.id === data.project.id);
+            if (exists) {
+              return old.map((p) => (p.id === data.project.id ? data.project : p));
+            } else {
+              return [data.project, ...old];
+            }
+          });
+        }
+      } catch (err) {
+        console.error("Failed to parse websocket message", err);
+      }
+    };
+
+    return () => {
+      socket.close();
+    };
+  }, []);
 
   const uploadMutation = useMutation({
     mutationFn: async () => {
