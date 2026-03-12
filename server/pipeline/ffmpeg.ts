@@ -1,4 +1,4 @@
-import { exec } from "child_process";
+import { exec, execFile } from "child_process";
 import { promisify } from "util";
 import path from "path";
 import fs from "fs";
@@ -7,11 +7,31 @@ import { getCaptionStyleById } from "../../shared/caption-styles";
 
 const execAsync = promisify(exec);
 
-export async function getMediaDuration(filePath: string): Promise<number> {
-  const { stdout } = await execAsync(
-    `ffprobe -v error -show_entries format=duration -of csv=p=0 "${filePath}"`
-  );
-  return parseFloat(stdout.trim());
+export function getMediaDuration(filePath: string): Promise<number> {
+  return new Promise((resolve, reject) => {
+    execFile(
+      "ffprobe",
+      [
+        "-v",
+        "error",
+        "-show_entries",
+        "format=duration",
+        "-of",
+        "csv=p=0",
+        filePath,
+      ],
+      (error, stdout) => {
+        if (error) {
+          return reject(error);
+        }
+        const duration = parseFloat(stdout.trim());
+        if (isNaN(duration)) {
+          return reject(new Error(`Failed to parse duration from output: ${stdout}`));
+        }
+        resolve(duration);
+      }
+    );
+  });
 }
 
 export async function getVideoInfo(filePath: string): Promise<{
