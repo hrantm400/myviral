@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { GoogleGenAI } from "@google/genai";
 import { chatStorage } from "./storage";
+import { logger } from "../../log";
 
 /*
 Supported models: gemini-2.5-flash (fast), gemini-2.5-pro (advanced reasoning)
@@ -23,7 +24,7 @@ export function registerChatRoutes(app: Express): void {
       const conversations = await chatStorage.getAllConversations();
       res.json(conversations);
     } catch (error) {
-      console.error("Error fetching conversations:", error);
+      logger.error(`Error fetching conversations: ${(error as Error).message}`, { source: "chat", error });
       res.status(500).json({ error: "Failed to fetch conversations" });
     }
   });
@@ -39,7 +40,7 @@ export function registerChatRoutes(app: Express): void {
       const messages = await chatStorage.getMessagesByConversation(id);
       res.json({ ...conversation, messages });
     } catch (error) {
-      console.error("Error fetching conversation:", error);
+      logger.error(`Error fetching conversation: ${(error as Error).message}`, { source: "chat", error });
       res.status(500).json({ error: "Failed to fetch conversation" });
     }
   });
@@ -51,7 +52,7 @@ export function registerChatRoutes(app: Express): void {
       const conversation = await chatStorage.createConversation(title || "New Chat");
       res.status(201).json(conversation);
     } catch (error) {
-      console.error("Error creating conversation:", error);
+      logger.error(`Error creating conversation: ${(error as Error).message}`, { source: "chat", error });
       res.status(500).json({ error: "Failed to create conversation" });
     }
   });
@@ -63,7 +64,7 @@ export function registerChatRoutes(app: Express): void {
       await chatStorage.deleteConversation(id);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting conversation:", error);
+      logger.error(`Error deleting conversation: ${(error as Error).message}`, { source: "chat", error });
       res.status(500).json({ error: "Failed to delete conversation" });
     }
   });
@@ -112,7 +113,7 @@ export function registerChatRoutes(app: Express): void {
       res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
       res.end();
     } catch (error) {
-      console.error("Error sending message:", error);
+      logger.error(`Error sending message: ${(error as Error).message}`, { source: "chat", error });
       // Check if headers already sent (SSE streaming started)
       if (res.headersSent) {
         res.write(`data: ${JSON.stringify({ error: "Failed to send message" })}\n\n`);

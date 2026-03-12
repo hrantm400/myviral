@@ -5,6 +5,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { ensureDirectories, runPipeline } from "./pipeline/processor";
+import { logger } from "./log";
 
 const UPLOAD_DIR = path.join(process.cwd(), "uploads");
 
@@ -90,7 +91,7 @@ export async function registerRoutes(
         });
 
         runPipeline(project.id).catch((err) => {
-          console.error("Pipeline error:", err);
+          logger.error(`Pipeline error: ${(err as Error).message}`, { source: "routes", error: err });
         });
 
         res.status(201).json(project);

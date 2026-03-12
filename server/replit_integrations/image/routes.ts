@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { Modality } from "@google/genai";
 import { ai } from "./client";
+import { logger } from "../../log";
 
 export function registerImageRoutes(app: Express): void {
   app.post("/api/generate-image", async (req: Request, res: Response) => {
@@ -32,7 +33,7 @@ export function registerImageRoutes(app: Express): void {
         mimeType,
       });
     } catch (error) {
-      console.error("Error generating image:", error);
+      logger.error(`Error generating image: ${(error as Error).message}`, { source: "image-gen", error });
       res.status(500).json({ error: "Failed to generate image" });
     }
   });
