@@ -1,6 +1,7 @@
 import { exec } from "child_process";
 import { promisify } from "util";
 import path from "path";
+import pLimit from "p-limit";
 import fs from "fs";
 import type { CaptionStyle } from "../../shared/caption-styles";
 import { getCaptionStyleById } from "../../shared/caption-styles";
@@ -60,15 +61,14 @@ export async function mixAudio(
   await execAsync(cmd, { timeout: 300000 });
 }
 
+const limit = pLimit(3);
+
 export async function extractVideoSegments(
   sourceVideoPath: string,
   timecodes: Array<{ start: string; end: string }>,
   outputDir: string
 ): Promise<string[]> {
-  const segmentPaths: string[] = [];
-
-  for (let i = 0; i < timecodes.length; i++) {
-    const tc = timecodes[i];
+  const promises = timecodes.map((tc, i) => {
     const outPath = path.join(outputDir, `segment_${i}.mp4`);
 
     const cmd = [
@@ -81,11 +81,13 @@ export async function extractVideoSegments(
       `"${outPath}"`,
     ].join(" ");
 
-    await execAsync(cmd, { timeout: 120000 });
-    segmentPaths.push(outPath);
-  }
+    return limit(async () => {
+      await execAsync(cmd, { timeout: 120000 });
+      return outPath;
+    });
+  });
 
-  return segmentPaths;
+  return Promise.all(promises);
 }
 
 export async function createSandwichVideo(
