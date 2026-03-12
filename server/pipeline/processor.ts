@@ -8,6 +8,7 @@ import {
 } from "./ffmpeg";
 import path from "path";
 import fs from "fs";
+import { logger } from "../log";
 
 const UPLOAD_DIR = path.join(process.cwd(), "uploads");
 const OUTPUT_DIR = path.join(process.cwd(), "outputs");
@@ -127,7 +128,7 @@ export async function runPipeline(projectId: number): Promise<void> {
       captionVideoPath,
     });
   } catch (error: any) {
-    console.error(`Pipeline failed for project ${projectId}:`, error);
+    logger.error(`Pipeline failed for project ${projectId}: ${error.message}`, { source: "pipeline", error });
     await updateProject(projectId, "failed", 0, {
       errorMessage: error.message || "Pipeline processing failed",
     });
