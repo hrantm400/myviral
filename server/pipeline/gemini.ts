@@ -1,10 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import fs from "fs";
 import path from "path";
-import { exec } from "child_process";
-import { promisify } from "util";
-
-const execAsync = promisify(exec);
+import { execFileAsync } from "./utils";
 
 const ai = new GoogleGenAI({
   apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
@@ -73,9 +70,12 @@ export async function transcribeAudio(
   const ext = path.extname(audioPath).toLowerCase();
   const mimeType = ext === ".wav" ? "audio/wav" : "audio/mpeg";
 
-  const { stdout: durationStr } = await execAsync(
-    `ffprobe -v error -show_entries format=duration -of csv=p=0 "${audioPath}"`
-  );
+  const { stdout: durationStr } = await execFileAsync("ffprobe", [
+    "-v", "error",
+    "-show_entries", "format=duration",
+    "-of", "csv=p=0",
+    audioPath,
+  ]);
   const duration = parseFloat(durationStr.trim());
 
   const response = await ai.models.generateContent({
@@ -134,9 +134,12 @@ export async function curateVideoSegments(
   transcript: string,
   targetDuration: number
 ): Promise<Array<{ start: string; end: string }>> {
-  const { stdout: durationStr } = await execAsync(
-    `ffprobe -v error -show_entries format=duration -of csv=p=0 "${sourceVideoPath}"`
-  );
+  const { stdout: durationStr } = await execFileAsync("ffprobe", [
+    "-v", "error",
+    "-show_entries", "format=duration",
+    "-of", "csv=p=0",
+    sourceVideoPath,
+  ]);
   const videoDuration = parseFloat(durationStr.trim());
 
   const framesDir = path.join(path.dirname(sourceVideoPath), "frames");
@@ -145,8 +148,14 @@ export async function curateVideoSegments(
   }
 
   const frameInterval = Math.max(5, Math.floor(videoDuration / 20));
-  await execAsync(
-    `ffmpeg -y -i "${sourceVideoPath}" -vf "fps=1/${frameInterval},scale=320:-1" "${framesDir}/frame_%04d.jpg"`,
+  await execFileAsync(
+    "ffmpeg",
+    [
+      "-y",
+      "-i", sourceVideoPath,
+      "-vf", `fps=1/${frameInterval},scale=320:-1`,
+      `${framesDir}/frame_%04d.jpg`,
+    ],
     { timeout: 120000 }
   );
 
