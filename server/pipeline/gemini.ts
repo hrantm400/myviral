@@ -18,43 +18,60 @@ function fixWordTimestamps(
   words: Array<{ word: string; start: number; end: number }>,
   audioDuration: number
 ): Array<{ word: string; start: number; end: number }> {
-  if (words.length === 0) return words;
+  const n = words.length;
+  if (n === 0) return [];
 
-  const fixed = words.map((w) => ({
-    word: w.word,
-    start: Math.round(w.start * 100) / 100,
-    end: Math.round(w.end * 100) / 100,
-  }));
+  const fixed = new Array(n);
 
-  for (let i = 0; i < fixed.length; i++) {
-    if (fixed[i].end <= fixed[i].start) {
-      fixed[i].end = fixed[i].start + 0.15;
+  let w = words[0];
+  let currStart = Math.round(w.start * 100) / 100;
+  let currEnd = Math.round(w.end * 100) / 100;
+
+  if (currEnd <= currStart) {
+    currEnd = currStart + 0.15;
+  }
+  currStart = Math.max(0, currStart);
+  currEnd = Math.min(audioDuration, currEnd);
+
+  fixed[0] = { word: w.word, start: currStart, end: currEnd };
+
+  for (let i = 1; i < n; i++) {
+    w = words[i];
+    currStart = Math.round(w.start * 100) / 100;
+    currEnd = Math.round(w.end * 100) / 100;
+
+    if (currEnd <= currStart) {
+      currEnd = currStart + 0.15;
     }
-    fixed[i].start = Math.max(0, fixed[i].start);
-    fixed[i].end = Math.min(audioDuration, fixed[i].end);
+    currStart = Math.max(0, currStart);
+    currEnd = Math.min(audioDuration, currEnd);
+
+    const prevEnd = fixed[i - 1].end;
+    if (currStart < prevEnd) {
+      currStart = prevEnd + 0.01;
+    }
+    if (currEnd <= currStart) {
+      currEnd = currStart + 0.15;
+    }
+
+    fixed[i] = { word: w.word, start: currStart, end: currEnd };
   }
 
-  for (let i = 1; i < fixed.length; i++) {
-    if (fixed[i].start < fixed[i - 1].end) {
-      fixed[i].start = fixed[i - 1].end + 0.01;
-    }
-    if (fixed[i].end <= fixed[i].start) {
-      fixed[i].end = fixed[i].start + 0.15;
-    }
-  }
+  for (let i = 0; i < n; i++) {
+    const curr = fixed[i];
 
-  for (let i = 0; i < fixed.length - 1; i++) {
-    const gap = fixed[i + 1].start - fixed[i].end;
-    if (gap > 0 && gap < 0.3) {
-      fixed[i].end = fixed[i + 1].start;
+    if (i < n - 1) {
+      const nextStart = fixed[i + 1].start;
+      const gap = nextStart - curr.end;
+      if (gap > 0 && gap < 0.3) {
+        curr.end = nextStart;
+      }
     }
-  }
 
-  for (const w of fixed) {
-    w.start = Math.max(0, Math.min(w.start, audioDuration - 0.1));
-    w.end = Math.min(w.end, audioDuration);
-    if (w.end <= w.start) {
-      w.end = Math.min(w.start + 0.15, audioDuration);
+    curr.start = Math.max(0, Math.min(curr.start, audioDuration - 0.1));
+    curr.end = Math.min(curr.end, audioDuration);
+    if (curr.end <= curr.start) {
+      curr.end = Math.min(curr.start + 0.15, audioDuration);
     }
   }
 
