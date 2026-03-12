@@ -1,5 +1,5 @@
 import type { Express, Request, Response } from "express";
-import { Modality } from "@google/genai";
+import { Modality, type Part } from "@google/genai";
 import { ai } from "./client";
 
 export function registerImageRoutes(app: Express): void {
@@ -20,7 +20,7 @@ export function registerImageRoutes(app: Express): void {
       });
 
       const candidate = response.candidates?.[0];
-      const imagePart = candidate?.content?.parts?.find((part: any) => part.inlineData);
+      const imagePart = candidate?.content?.parts?.find((part: Part) => part.inlineData);
 
       if (!imagePart?.inlineData?.data) {
         return res.status(500).json({ error: "No image data in response" });
