@@ -24,7 +24,7 @@ async function updateProject(
   id: number,
   step: string,
   progress: number,
-  extra: Record<string, any> = {}
+  extra: Record<string, unknown> = {}
 ) {
   await storage.updateProject(id, {
     currentStep: step,
