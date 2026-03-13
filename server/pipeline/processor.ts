@@ -40,7 +40,7 @@ async function updateProject(
 }
 
 import { extractHighlights } from "./gemini";
-import { autoDucking, smartCropVideo } from "./ffmpeg";
+import { autoDucking, smartCropVideo, autoColorGrade, isolateVocal } from "./ffmpeg";
 
 export async function runPipeline(projectId: number): Promise<void> {
   const project = await storage.getProject(projectId);
@@ -62,6 +62,14 @@ export async function runPipeline(projectId: number): Promise<void> {
     }
     if (project.projectType === "highlights") {
       await processHighlightsPipeline(project, projectDir);
+      return;
+    }
+    if (project.projectType === "color") {
+      await processColorPipeline(project, projectDir);
+      return;
+    }
+    if (project.projectType === "isolate") {
+      await processIsolatePipeline(project, projectDir);
       return;
     }
 
@@ -231,6 +239,36 @@ async function processHighlightsPipeline(project: any, projectDir: string) {
   // In a full implementation, we would stitch these or provide them as a zip.
   // For now, we'll just link the first highlighted segment as the main video.
   const clearVideoPath = segmentPaths[0];
+
+  await updateProject(project.id, "complete", 100, {
+    clearVideoPath,
+    captionVideoPath: clearVideoPath
+  });
+}
+
+async function processColorPipeline(project: any, projectDir: string) {
+  await updateProject(project.id, "video_composition", 50);
+
+  const safeName = project.name.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 50);
+  const clearVideoPath = path.join(projectDir, `${safeName}_colored.mp4`);
+
+  await autoColorGrade(project.sourceVideoPath!, clearVideoPath);
+
+  await updateProject(project.id, "complete", 100, {
+    clearVideoPath,
+    captionVideoPath: clearVideoPath
+  });
+}
+
+async function processIsolatePipeline(project: any, projectDir: string) {
+  await updateProject(project.id, "audio_mixing", 50);
+
+  const safeName = project.name.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 50);
+  const isVideo = project.sourceVideoPath.toLowerCase().endsWith(".mp4");
+  const ext = isVideo ? ".mp4" : ".wav";
+  const clearVideoPath = path.join(projectDir, `${safeName}_clean${ext}`);
+
+  await isolateVocal(project.sourceVideoPath!, clearVideoPath, isVideo);
 
   await updateProject(project.id, "complete", 100, {
     clearVideoPath,

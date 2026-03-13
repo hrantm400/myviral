@@ -6,7 +6,9 @@ import {
   Wand2,
   Type,
   Settings,
-  Sparkles
+  Sparkles,
+  Palette,
+  AudioLines
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -15,6 +17,8 @@ const NAV_ITEMS = [
   { href: "/smart-crop", label: "AI Smart Crop", icon: Scissors, description: "Auto face-tracking & cropping" },
   { href: "/auto-ducking", label: "Auto-Ducking", icon: Mic2, description: "Smart background music mixing" },
   { href: "/highlights", label: "Podcast Highlights", icon: Wand2, description: "Batch extraction from long videos" },
+  { href: "/color-grade", label: "AI Color Grade", icon: Palette, description: "Cinematic color correction" },
+  { href: "/vocal-isolate", label: "Vocal Isolator", icon: AudioLines, description: "Studio quality audio cleaning" },
   { href: "/style-studio", label: "Style Studio", icon: Type, description: "Custom subtitle fonts & colors" },
 ];
 

@@ -158,6 +158,56 @@ export async function registerRoutes(
   );
 
   app.post(
+    "/api/projects/color",
+    upload.fields([{ name: "sourceVideo", maxCount: 1 }]),
+    async (req, res) => {
+      try {
+        const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+        if (!files.sourceVideo?.[0]) return res.status(400).json({ error: "Source video required" });
+
+        const project = await storage.createProject({
+          name: (req.body.name as string) || "Cinematic Color Grade",
+          projectType: "color",
+          status: "processing",
+          currentStep: "uploading",
+          progress: 5,
+          sourceVideoPath: files.sourceVideo[0].path,
+        });
+
+        runPipeline(project.id).catch(console.error);
+        res.status(201).json(project);
+      } catch (error: any) {
+        res.status(500).json({ error: error.message });
+      }
+    }
+  );
+
+  app.post(
+    "/api/projects/isolate",
+    upload.fields([{ name: "sourceMedia", maxCount: 1 }]),
+    async (req, res) => {
+      try {
+        const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+        if (!files.sourceMedia?.[0]) return res.status(400).json({ error: "Source media required" });
+
+        const project = await storage.createProject({
+          name: (req.body.name as string) || "Studio Clear Vocal",
+          projectType: "isolate",
+          status: "processing",
+          currentStep: "uploading",
+          progress: 5,
+          sourceVideoPath: files.sourceMedia[0].path, // Store both audio/video in the same path column
+        });
+
+        runPipeline(project.id).catch(console.error);
+        res.status(201).json(project);
+      } catch (error: any) {
+        res.status(500).json({ error: error.message });
+      }
+    }
+  );
+
+  app.post(
     "/api/projects/highlights",
     upload.fields([{ name: "sourceVideo", maxCount: 1 }]),
     async (req, res) => {

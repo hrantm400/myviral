@@ -93,6 +93,47 @@ export async function autoDucking(
   await execAsync(cmd, { timeout: 300000 });
 }
 
+export async function autoColorGrade(
+  sourceVideoPath: string,
+  outputPath: string
+): Promise<void> {
+  // A professional-style cinematic color grading filter using FFmpeg
+  // 1. eq: Increase contrast slightly, boost saturation for richer colors
+  // 2. unsharp: Add slight sharpening to make details pop
+  // 3. curves: Slight S-curve for a cinematic look (crush blacks a bit, pop highlights)
+  const cmd = [
+    "ffmpeg -y",
+    `-i "${sourceVideoPath}"`,
+    `-vf "eq=contrast=1.15:brightness=0.02:saturation=1.3:gamma=0.95,unsharp=5:5:1.0:5:5:0.0,curves=m='0/0 0.5/0.4 1/1'"`,
+    `-c:v libx264 -preset medium -crf 20`,
+    `-c:a copy`,
+    `"${outputPath}"`
+  ].join(" ");
+
+  await execAsync(cmd, { timeout: 300000 });
+}
+
+export async function isolateVocal(
+  sourcePath: string,
+  outputPath: string,
+  isVideo: boolean
+): Promise<void> {
+  // An advanced vocal enhancer / noise reducer using native FFmpeg filters
+  // 1. highpass/lowpass: Remove rumble (wind/handling noise) below 80Hz and hiss above 12kHz
+  // 2. afftdn: Fast Fourier Transform Noise De-Noiser (removes steady background noise)
+  // 3. loudnorm: Broadcast-standard loudness normalization (EBU R128) to make the voice clear and present
+  const cmd = [
+    "ffmpeg -y",
+    `-i "${sourcePath}"`,
+    `-af "highpass=f=80,lowpass=f=12000,afftdn=nf=-25,loudnorm=I=-16:LRA=11:TP=-1.5"`,
+    isVideo ? `-c:v copy` : "",
+    `-c:a aac -b:a 192k`,
+    `"${outputPath}"`
+  ].join(" ");
+
+  await execAsync(cmd, { timeout: 300000 });
+}
+
 export async function smartCropVideo(
   sourceVideoPath: string,
   outputPath: string,
