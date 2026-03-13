@@ -60,57 +60,83 @@ export async function mixAudio(
   await execAsync(cmd, { timeout: 300000 });
 }
 
+import { execFile } from "child_process";
+const execFileAsync = promisify(execFile);
+
 export async function autoDucking(
   voiceoverPath: string,
   bgMusicPath: string,
   outputPath: string,
   voiceoverDuration: number
 ): Promise<void> {
-  // Uses sidechain compression to duck the music when voiceover is present.
-  // [1:a] asplit [sc][main];
-  // [main][sc] sidechaincompress=threshold=0.08:ratio=4:attack=5:release=50[bg];
-  // Wait, the correct sidechain syntax:
-  // [vo]asplit=2[vo1][vo2];
-  // [vo1][bg] amix... - wait, sidechain needs the control signal.
-  const cmd = [
-    "ffmpeg -y",
-    `-i "${voiceoverPath}"`,
-    `-i "${bgMusicPath}"`,
-    `-filter_complex`,
-    // Apply initial volume adjusments
-    `"[0:a]volume=10dB,asplit=2[sc][vo_out];`,
-    `[1:a]volume=0dB[bg_in];`,
-    // Use the voice track [sc] to sidechain compress the background track [bg_in]
-    `[bg_in][sc]sidechaincompress=threshold=0.01:ratio=5:attack=100:release=1000:makeup=1.5[bg_ducked];`,
-    // Mix the untouched (but volume adjusted) voiceover with the ducked background music
-    `[vo_out][bg_ducked]amix=inputs=2:duration=first:dropout_transition=2[out]"`,
-    `-map "[out]"`,
-    `-t ${voiceoverDuration}`,
-    `-ar 44100`,
-    `"${outputPath}"`,
-  ].join(" ");
+  const args = [
+    "-y",
+    "-i", voiceoverPath,
+    "-i", bgMusicPath,
+    "-filter_complex",
+    "[0:a]volume=10dB,asplit=2[sc][vo_out];[1:a]volume=0dB[bg_in];[bg_in][sc]sidechaincompress=threshold=0.01:ratio=5:attack=100:release=1000:makeup=1.5[bg_ducked];[vo_out][bg_ducked]amix=inputs=2:duration=first:dropout_transition=2[out]",
+    "-map", "[out]",
+    "-t", voiceoverDuration.toString(),
+    "-ar", "44100",
+    outputPath
+  ];
 
-  await execAsync(cmd, { timeout: 300000 });
+  await execFileAsync("ffmpeg", args, { timeout: 300000 });
 }
 
 export async function autoColorGrade(
   sourceVideoPath: string,
   outputPath: string
 ): Promise<void> {
-  // A professional-style cinematic color grading filter using FFmpeg
-  // 1. eq: Increase contrast slightly, boost saturation for richer colors
-  // 2. unsharp: Add slight sharpening to make details pop
-  // 3. curves: Slight S-curve for a cinematic look (crush blacks a bit, pop highlights)
-  const cmd = [
-    "ffmpeg -y",
-    `-i "${sourceVideoPath}"`,
-    `-vf "eq=contrast=1.15:brightness=0.02:saturation=1.3:gamma=0.95,unsharp=5:5:1.0:5:5:0.0,curves=m='0/0 0.5/0.4 1/1'"`,
-    `-c:v libx264 -preset medium -crf 20`,
-    `-c:a copy`,
-    `"${outputPath}"`
-  ].join(" ");
+  const args = [
+    "-y",
+    "-i", sourceVideoPath,
+    "-vf", "eq=contrast=1.15:brightness=0.02:saturation=1.3:gamma=0.95,unsharp=5:5:1.0:5:5:0.0,curves=m='0/0 0.5/0.4 1/1'",
+    "-c:v", "libx264",
+    "-preset", "medium",
+    "-crf", "20",
+    "-c:a", "copy",
+    outputPath
+  ];
 
-  await execAsync(cmd, { timeout: 300000 });
+  await execFileAsync("ffmpeg", args, { timeout: 300000 });
+}
+
+export async function motionTrackOverlay(
+  sourceVideoPath: string,
+  outputPath: string,
+  overlayText: string
+): Promise<void> {
+  // Properly escape the user-provided text for the drawtext filter
+  const escapedText = overlayText
+    .replace(/\\/g, "\\\\") // Escape backslashes
+    .replace(/:/g, "\\:")   // Escape colons
+    .replace(/'/g, "");     // Remove single quotes to prevent injection
+
+  const drawtextFilter = [
+    `drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf`,
+    `text='${escapedText}'`,
+    `fontcolor=white`,
+    `fontsize=64`,
+    `box=1`,
+    `boxcolor=black@0.5`,
+    `boxborderw=10`,
+    `x=(w-text_w)/2+((w-text_w)/3)*sin(t*2)`,
+    `y=(h-text_h)/2+((h-text_h)/3)*cos(t*1.5)`
+  ].join(':');
+
+  const args = [
+    "-y",
+    "-i", sourceVideoPath,
+    "-vf", drawtextFilter,
+    "-c:v", "libx264",
+    "-preset", "medium",
+    "-crf", "20",
+    "-c:a", "copy",
+    outputPath
+  ];
+
+  await execFileAsync("ffmpeg", args, { timeout: 300000 });
 }
 
 export async function isolateVocal(
@@ -118,20 +144,19 @@ export async function isolateVocal(
   outputPath: string,
   isVideo: boolean
 ): Promise<void> {
-  // An advanced vocal enhancer / noise reducer using native FFmpeg filters
-  // 1. highpass/lowpass: Remove rumble (wind/handling noise) below 80Hz and hiss above 12kHz
-  // 2. afftdn: Fast Fourier Transform Noise De-Noiser (removes steady background noise)
-  // 3. loudnorm: Broadcast-standard loudness normalization (EBU R128) to make the voice clear and present
-  const cmd = [
-    "ffmpeg -y",
-    `-i "${sourcePath}"`,
-    `-af "highpass=f=80,lowpass=f=12000,afftdn=nf=-25,loudnorm=I=-16:LRA=11:TP=-1.5"`,
-    isVideo ? `-c:v copy` : "",
-    `-c:a aac -b:a 192k`,
-    `"${outputPath}"`
-  ].join(" ");
+  const args = [
+    "-y",
+    "-i", sourcePath,
+    "-af", "highpass=f=80,lowpass=f=12000,afftdn=nf=-25,loudnorm=I=-16:LRA=11:TP=-1.5"
+  ];
 
-  await execAsync(cmd, { timeout: 300000 });
+  if (isVideo) {
+    args.push("-c:v", "copy");
+  }
+
+  args.push("-c:a", "aac", "-b:a", "192k", outputPath);
+
+  await execFileAsync("ffmpeg", args, { timeout: 300000 });
 }
 
 export async function smartCropVideo(
@@ -139,21 +164,19 @@ export async function smartCropVideo(
   outputPath: string,
   duration: number
 ): Promise<void> {
-  // This is a naive smart crop that uses an FFmpeg filter crop
-  // In a real advanced scenario, OpenCV would be used to find the face bounding box per frame.
-  // Here we use a generic centered 9:16 crop.
-  // 1080x1920 is 9:16.
-  const cmd = [
-    "ffmpeg -y",
-    `-i "${sourceVideoPath}"`,
-    `-vf "crop=ih*9/16:ih:iw/2-ih*9/32:0,scale=1080:1920"`,
-    `-c:v libx264 -preset fast -crf 23`,
-    `-c:a copy`,
-    `-t ${duration}`,
-    `"${outputPath}"`
-  ].join(" ");
+  const args = [
+    "-y",
+    "-i", sourceVideoPath,
+    "-vf", "crop=ih*9/16:ih:iw/2-ih*9/32:0,scale=1080:1920",
+    "-c:v", "libx264",
+    "-preset", "fast",
+    "-crf", "23",
+    "-c:a", "copy",
+    "-t", duration.toString(),
+    outputPath
+  ];
 
-  await execAsync(cmd, { timeout: 300000 });
+  await execFileAsync("ffmpeg", args, { timeout: 300000 });
 }
 
 export async function extractVideoSegments(

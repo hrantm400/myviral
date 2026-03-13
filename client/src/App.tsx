@@ -10,6 +10,7 @@ import AutoDucking from "@/pages/auto-ducking";
 import Highlights from "@/pages/highlights";
 import ColorGrade from "@/pages/color-grade";
 import VocalIsolate from "@/pages/vocal-isolate";
+import MotionTrack from "@/pages/motion-track";
 import StyleStudio from "@/pages/style-studio";
 import { MainLayout } from "@/components/layout";
 
@@ -23,6 +24,7 @@ function Router() {
         <Route path="/highlights" component={Highlights} />
         <Route path="/color-grade" component={ColorGrade} />
         <Route path="/vocal-isolate" component={VocalIsolate} />
+        <Route path="/motion-track" component={MotionTrack} />
         <Route path="/style-studio" component={StyleStudio} />
         <Route component={NotFound} />
       </Switch>

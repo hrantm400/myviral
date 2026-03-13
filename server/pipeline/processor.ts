@@ -40,7 +40,7 @@ async function updateProject(
 }
 
 import { extractHighlights } from "./gemini";
-import { autoDucking, smartCropVideo, autoColorGrade, isolateVocal } from "./ffmpeg";
+import { autoDucking, smartCropVideo, autoColorGrade, isolateVocal, motionTrackOverlay } from "./ffmpeg";
 
 export async function runPipeline(projectId: number): Promise<void> {
   const project = await storage.getProject(projectId);
@@ -70,6 +70,10 @@ export async function runPipeline(projectId: number): Promise<void> {
     }
     if (project.projectType === "isolate") {
       await processIsolatePipeline(project, projectDir);
+      return;
+    }
+    if (project.projectType === "motion-track") {
+      await processMotionTrackPipeline(project, projectDir);
       return;
     }
 
@@ -246,6 +250,22 @@ async function processHighlightsPipeline(project: any, projectDir: string) {
   });
 }
 
+async function processMotionTrackPipeline(project: any, projectDir: string) {
+  await updateProject(project.id, "video_composition", 50);
+
+  const safeName = project.name.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 50);
+  const clearVideoPath = path.join(projectDir, `${safeName}_tracked.mp4`);
+
+  // We hijacked captionStyle to store overlay text
+  const overlayText = project.captionStyle || "Target";
+  await motionTrackOverlay(project.sourceVideoPath!, clearVideoPath, overlayText);
+
+  await updateProject(project.id, "complete", 100, {
+    clearVideoPath,
+    captionVideoPath: clearVideoPath
+  });
+}
+
 async function processColorPipeline(project: any, projectDir: string) {
   await updateProject(project.id, "video_composition", 50);
 
@@ -265,7 +285,8 @@ async function processIsolatePipeline(project: any, projectDir: string) {
 
   const safeName = project.name.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 50);
   const isVideo = project.sourceVideoPath.toLowerCase().endsWith(".mp4");
-  const ext = isVideo ? ".mp4" : ".wav";
+  // Use .m4a since we encode audio as aac
+  const ext = isVideo ? ".mp4" : ".m4a";
   const clearVideoPath = path.join(projectDir, `${safeName}_clean${ext}`);
 
   await isolateVocal(project.sourceVideoPath!, clearVideoPath, isVideo);

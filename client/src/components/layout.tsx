@@ -19,6 +19,7 @@ const NAV_ITEMS = [
   { href: "/highlights", label: "Podcast Highlights", icon: Wand2, description: "Batch extraction from long videos" },
   { href: "/color-grade", label: "AI Color Grade", icon: Palette, description: "Cinematic color correction" },
   { href: "/vocal-isolate", label: "Vocal Isolator", icon: AudioLines, description: "Studio quality audio cleaning" },
+  { href: "/motion-track", label: "Motion Track", icon: Film, description: "Dynamic object tracking" },
   { href: "/style-studio", label: "Style Studio", icon: Type, description: "Custom subtitle fonts & colors" },
 ];
 
