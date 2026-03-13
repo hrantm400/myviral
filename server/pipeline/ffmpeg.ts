@@ -5,7 +5,8 @@ import fs from "fs";
 import type { CaptionStyle } from "../../shared/caption-styles";
 import { getCaptionStyleById } from "../../shared/caption-styles";
 
-const execAsync = promisify(exec);
+import { execUtils } from "./execUtils";
+const execAsync = (cmd: string, options?: any) => execUtils.execAsync(cmd, options);
 
 export async function getMediaDuration(filePath: string): Promise<number> {
   const { stdout } = await execAsync(
