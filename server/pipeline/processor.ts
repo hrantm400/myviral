@@ -51,7 +51,7 @@ export async function runPipeline(projectId: number): Promise<void> {
 
     await updateProject(projectId, "transcription", 25, {
       voiceoverDuration: Math.round(voiceoverDuration),
-      transcription: transcription.words as any,
+      transcription: transcription.words,
     });
 
     await updateProject(projectId, "video_curation", 30);
@@ -63,7 +63,7 @@ export async function runPipeline(projectId: number): Promise<void> {
     );
 
     await updateProject(projectId, "video_curation", 45, {
-      timecodes: timecodes as any,
+      timecodes,
     });
 
     await updateProject(projectId, "audio_mixing", 50);
