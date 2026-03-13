@@ -23,9 +23,30 @@ const fileStorage = multer.diskStorage({
   },
 });
 
+const ALLOWED_MIME_TYPES: Record<string, string[]> = {
+  sourceVideo: ["video/mp4", "video/quicktime", "video/webm"],
+  voiceover: ["audio/mpeg", "audio/wav", "audio/mp4", "audio/x-m4a", "audio/m4a"],
+  bgMusic: ["audio/mpeg", "audio/wav", "audio/mp4", "audio/x-m4a", "audio/m4a"],
+  logo: ["image/jpeg", "image/png", "image/webp", "image/svg+xml"],
+};
+
+const fileFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  const allowedMimes = ALLOWED_MIME_TYPES[file.fieldname];
+  if (!allowedMimes) {
+    return cb(new Error(`Unexpected field: ${file.fieldname}`));
+  }
+
+  if (allowedMimes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error(`Invalid file type for ${file.fieldname}. Allowed types: ${allowedMimes.join(", ")}`));
+  }
+};
+
 const upload = multer({
   storage: fileStorage,
   limits: { fileSize: 500 * 1024 * 1024 },
+  fileFilter,
 });
 
 export async function registerRoutes(
