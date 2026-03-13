@@ -7,6 +7,12 @@ import { Button } from "@/components/ui/button";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 
+import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import type { Project } from "@shared/schema";
+import { ProjectCard } from "@/components/ProjectCard";
+import { AnimatePresence } from "framer-motion";
+
 export default function VocalIsolator() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -33,6 +39,20 @@ export default function VocalIsolator() {
       toast({ title: "Pipeline started", description: "Vocal isolation processing in background" });
     },
     onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  const { data: allProjects = [] } = useQuery<Project[]>({
+    queryKey: ["/api/projects"],
+  });
+  const projects = allProjects.filter(p => p.projectType === "isolate");
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/projects/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+    },
   });
 
   const canSubmit = sourceMedia && !uploadMutation.isPending;
@@ -77,6 +97,21 @@ export default function VocalIsolator() {
           </div>
         </Card>
       </motion.div>
+
+      {projects.length > 0 && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold">Your Cleaned Media</h2>
+          <AnimatePresence mode="popLayout">
+            {projects.map((project) => (
+              <ProjectCard
+                key={project.id}
+                project={project}
+                onDelete={(id) => deleteMutation.mutate(id)}
+              />
+            ))}
+          </AnimatePresence>
+        </div>
+      )}
     </div>
   );
 }

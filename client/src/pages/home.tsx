@@ -8,45 +8,22 @@ import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
-  Upload,
   Video,
   Music,
   Image,
   Mic,
   Play,
-  Download,
-  Trash2,
   CheckCircle2,
-  XCircle,
   Loader2,
+  Upload,
   Sparkles,
-  Wand2,
   Film,
-  AudioLines,
-  Subtitles,
-  FileVideo,
-  ArrowRight,
   RefreshCw,
-  Clock,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { CaptionStyleSelector } from "@/components/caption-styles";
 import type { Project } from "@shared/schema";
-
-const PIPELINE_STEPS = [
-  { key: "uploading", label: "Upload", icon: Upload, description: "Uploading files" },
-  { key: "transcription", label: "Transcribe", icon: Mic, description: "AI transcription with word-level timestamps" },
-  { key: "video_curation", label: "AI Curation", icon: Sparkles, description: "Gemini selects the best video segments" },
-  { key: "audio_mixing", label: "Audio Mix", icon: AudioLines, description: "FFmpeg audio engineering" },
-  { key: "video_composition", label: "Compose", icon: Film, description: "9:16 sandwich layout rendering" },
-  { key: "subtitle_overlay", label: "Subtitles", icon: Subtitles, description: "Animated captions overlay" },
-  { key: "exporting", label: "Export", icon: FileVideo, description: "Dual video export" },
-  { key: "complete", label: "Done", icon: CheckCircle2, description: "Processing complete" },
-];
-
-function getStepIndex(step: string): number {
-  return PIPELINE_STEPS.findIndex((s) => s.key === step);
-}
+import { ProjectCard } from "@/components/ProjectCard";
 
 interface FileUploadZoneProps {
   label: string;
@@ -141,216 +118,6 @@ function FileUploadZone({
   );
 }
 
-function PipelineStatus({ project }: { project: Project }) {
-  const currentIndex = getStepIndex(project.currentStep);
-  const isFailed = project.status === "failed";
-  const isComplete = project.status === "complete";
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="space-y-6"
-    >
-      <div className="flex items-center gap-1 overflow-x-auto pb-2">
-        {PIPELINE_STEPS.map((step, idx) => {
-          const StepIcon = step.icon;
-          const isActive = idx === currentIndex && !isFailed && !isComplete;
-          const isDone = idx < currentIndex || isComplete;
-          const isCurrent = idx === currentIndex;
-
-          return (
-            <div key={step.key} className="flex items-center">
-              <div className="flex flex-col items-center min-w-[56px]">
-                <div
-                  className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-500 ${
-                    isFailed && isCurrent
-                      ? "bg-destructive/10 text-destructive"
-                      : isDone
-                        ? "bg-emerald-500/10 text-emerald-500"
-                        : isActive
-                          ? "bg-primary/10 text-primary animate-pulse"
-                          : "bg-muted text-muted-foreground"
-                  }`}
-                >
-                  {isFailed && isCurrent ? (
-                    <XCircle className="w-4 h-4" />
-                  ) : isDone ? (
-                    <CheckCircle2 className="w-4 h-4" />
-                  ) : isActive ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <StepIcon className="w-4 h-4" />
-                  )}
-                </div>
-                <span
-                  className={`text-[10px] mt-1.5 font-medium text-center leading-tight ${
-                    isDone
-                      ? "text-emerald-600 dark:text-emerald-400"
-                      : isActive
-                        ? "text-primary"
-                        : "text-muted-foreground"
-                  }`}
-                >
-                  {step.label}
-                </span>
-              </div>
-              {idx < PIPELINE_STEPS.length - 1 && (
-                <div
-                  className={`w-4 h-0.5 mt-[-14px] transition-colors duration-500 ${
-                    idx < currentIndex || isComplete
-                      ? "bg-emerald-500/40"
-                      : "bg-border"
-                  }`}
-                />
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="space-y-3">
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">
-            {isFailed
-              ? "Pipeline failed"
-              : isComplete
-                ? "Processing complete"
-                : PIPELINE_STEPS[currentIndex]?.description || "Processing..."}
-          </span>
-          <span className="font-mono text-xs text-muted-foreground">
-            {project.progress}%
-          </span>
-        </div>
-        <Progress
-          value={project.progress}
-          className={`h-2 ${isFailed ? "[&>div]:bg-destructive" : isComplete ? "[&>div]:bg-emerald-500" : ""}`}
-          data-testid="progress-bar"
-        />
-      </div>
-
-      {isFailed && project.errorMessage && (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: "auto" }}
-          className="rounded-lg bg-destructive/5 border border-destructive/20 p-4"
-        >
-          <p className="text-sm text-destructive font-medium">Error</p>
-          <p className="text-xs text-destructive/80 mt-1">{project.errorMessage}</p>
-        </motion.div>
-      )}
-
-      {isComplete && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="grid grid-cols-1 sm:grid-cols-2 gap-3"
-        >
-          <a
-            href={`/api/projects/${project.id}/download/clear`}
-            download
-            data-testid="download-clear"
-          >
-            <Card className="p-4 hover:bg-muted/50 transition-colors cursor-pointer group">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center">
-                  <FileVideo className="w-5 h-5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm">Clear Version</p>
-                  <p className="text-xs text-muted-foreground">
-                    No subtitles or logo
-                  </p>
-                </div>
-                <Download className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
-              </div>
-            </Card>
-          </a>
-
-          <a
-            href={`/api/projects/${project.id}/download/caption`}
-            download
-            data-testid="download-caption"
-          >
-            <Card className="p-4 hover:bg-muted/50 transition-colors cursor-pointer group">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-violet-500/10 text-violet-500 flex items-center justify-center">
-                  <Subtitles className="w-5 h-5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm">Caption Version</p>
-                  <p className="text-xs text-muted-foreground">
-                    With subtitles & logo
-                  </p>
-                </div>
-                <Download className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
-              </div>
-            </Card>
-          </a>
-        </motion.div>
-      )}
-    </motion.div>
-  );
-}
-
-function ProjectCard({ project, onDelete }: { project: Project; onDelete: (id: number) => void }) {
-  const isProcessing = !["complete", "failed"].includes(project.status);
-
-  return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-    >
-      <Card className="p-5 space-y-4" data-testid={`project-card-${project.id}`}>
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
-            <div
-              className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                project.status === "complete"
-                  ? "bg-emerald-500/10 text-emerald-500"
-                  : project.status === "failed"
-                    ? "bg-destructive/10 text-destructive"
-                    : "bg-primary/10 text-primary"
-              }`}
-            >
-              {isProcessing ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : project.status === "complete" ? (
-                <CheckCircle2 className="w-5 h-5" />
-              ) : (
-                <XCircle className="w-5 h-5" />
-              )}
-            </div>
-            <div>
-              <h3 className="font-semibold text-sm" data-testid={`text-project-name-${project.id}`}>
-                {project.name}
-              </h3>
-              <div className="flex items-center gap-2 mt-0.5">
-                <Clock className="w-3 h-3 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">
-                  {new Date(project.createdAt).toLocaleString()}
-                </span>
-              </div>
-            </div>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-muted-foreground hover:text-destructive"
-            onClick={() => onDelete(project.id)}
-            data-testid={`button-delete-${project.id}`}
-          >
-            <Trash2 className="w-4 h-4" />
-          </Button>
-        </div>
-        <PipelineStatus project={project} />
-      </Card>
-    </motion.div>
-  );
-}
-
 export default function Home() {
   const { toast } = useToast();
   const [projectName, setProjectName] = useState("");
@@ -363,36 +130,6 @@ export default function Home() {
   const { data: projects = [], isLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
   });
-
-  useEffect(() => {
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
-
-    let socket = new WebSocket(wsUrl);
-
-    socket.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === "PROJECT_UPDATE" && data.project) {
-          queryClient.setQueryData<Project[]>(["/api/projects"], (old) => {
-            if (!old) return [data.project];
-            const exists = old.find((p) => p.id === data.project.id);
-            if (exists) {
-              return old.map((p) => (p.id === data.project.id ? data.project : p));
-            } else {
-              return [data.project, ...old];
-            }
-          });
-        }
-      } catch (err) {
-        console.error("Failed to parse websocket message", err);
-      }
-    };
-
-    return () => {
-      socket.close();
-    };
-  }, []);
 
   const uploadMutation = useMutation({
     mutationFn: async () => {
@@ -598,7 +335,7 @@ export default function Home() {
                 </Card>
               ))}
             </div>
-          ) : projects.length === 0 ? (
+          ) : projects.filter(p => p.projectType === "classic").length === 0 ? (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -617,7 +354,7 @@ export default function Home() {
           ) : (
             <AnimatePresence mode="popLayout">
               <div className="space-y-4">
-                {projects.map((project) => (
+                {projects.filter(p => p.projectType === "classic").map((project) => (
                   <ProjectCard
                     key={project.id}
                     project={project}

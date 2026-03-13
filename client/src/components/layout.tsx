@@ -1,4 +1,7 @@
+import { useEffect } from "react";
 import { Link, useLocation } from "wouter";
+import { queryClient } from "@/lib/queryClient";
+import type { Project } from "@shared/schema";
 import {
   Film,
   Scissors,
@@ -129,6 +132,36 @@ export function Sidebar() {
 }
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
+  useEffect(() => {
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const wsUrl = `${protocol}//${window.location.host}/ws`;
+
+    let socket = new WebSocket(wsUrl);
+
+    socket.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "PROJECT_UPDATE" && data.project) {
+          queryClient.setQueryData<Project[]>(["/api/projects"], (old) => {
+            if (!old) return [data.project];
+            const exists = old.find((p) => p.id === data.project.id);
+            if (exists) {
+              return old.map((p) => (p.id === data.project.id ? data.project : p));
+            } else {
+              return [data.project, ...old];
+            }
+          });
+        }
+      } catch (err) {
+        console.error("Failed to parse websocket message", err);
+      }
+    };
+
+    return () => {
+      socket.close();
+    };
+  }, []);
+
   return (
     <div className="flex min-h-screen bg-background text-foreground">
       <Sidebar />

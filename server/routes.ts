@@ -25,7 +25,26 @@ const fileStorage = multer.diskStorage({
 
 const upload = multer({
   storage: fileStorage,
-  limits: { fileSize: 500 * 1024 * 1024 },
+  limits: { fileSize: 500 * 1024 * 1024 }, // 500MB limit
+  fileFilter: (_req, file, cb) => {
+    // Basic strict mime-type validation based on expected fields
+    const isVideoField = ["sourceVideo", "sourceMedia"].includes(file.fieldname);
+    const isAudioField = ["voiceover", "bgMusic"].includes(file.fieldname);
+    const isImageField = ["logo"].includes(file.fieldname);
+
+    if (isVideoField && !file.mimetype.startsWith("video/")) {
+      return cb(new Error(`Invalid file type for ${file.fieldname}. Expected video.`));
+    }
+    if (isAudioField && !file.mimetype.startsWith("audio/") && !file.mimetype.startsWith("video/")) {
+      // Allow video for voiceover in case users upload MP4s for audio extraction
+      return cb(new Error(`Invalid file type for ${file.fieldname}. Expected audio or video.`));
+    }
+    if (isImageField && !file.mimetype.startsWith("image/")) {
+      return cb(new Error(`Invalid file type for ${file.fieldname}. Expected image.`));
+    }
+
+    cb(null, true);
+  }
 });
 
 export async function registerRoutes(
@@ -90,9 +109,7 @@ export async function registerRoutes(
           captionStyle,
         });
 
-        runPipeline(project.id).catch((err) => {
-          console.error("Pipeline error:", err);
-        });
+        import("./pipeline/processor").then((mod) => mod.queuePipeline(project.id)).catch(console.error);
 
         res.status(201).json(project);
       } catch (error: any) {
@@ -124,7 +141,7 @@ export async function registerRoutes(
           bgMusicPath: files.bgMusic[0].path,
         });
 
-        runPipeline(project.id).catch(console.error);
+        import("./pipeline/processor").then((mod) => mod.queuePipeline(project.id)).catch(console.error);
         res.status(201).json(project);
       } catch (error: any) {
         res.status(500).json({ error: error.message });
@@ -149,7 +166,7 @@ export async function registerRoutes(
           sourceVideoPath: files.sourceVideo[0].path,
         });
 
-        runPipeline(project.id).catch(console.error);
+        import("./pipeline/processor").then((mod) => mod.queuePipeline(project.id)).catch(console.error);
         res.status(201).json(project);
       } catch (error: any) {
         res.status(500).json({ error: error.message });
@@ -174,7 +191,7 @@ export async function registerRoutes(
           sourceVideoPath: files.sourceVideo[0].path,
         });
 
-        runPipeline(project.id).catch(console.error);
+        import("./pipeline/processor").then((mod) => mod.queuePipeline(project.id)).catch(console.error);
         res.status(201).json(project);
       } catch (error: any) {
         res.status(500).json({ error: error.message });
@@ -205,7 +222,7 @@ export async function registerRoutes(
           captionStyle: overlayText,
         });
 
-        runPipeline(project.id).catch(console.error);
+        import("./pipeline/processor").then((mod) => mod.queuePipeline(project.id)).catch(console.error);
         res.status(201).json(project);
       } catch (error: any) {
         res.status(500).json({ error: error.message });
@@ -230,7 +247,7 @@ export async function registerRoutes(
           sourceVideoPath: files.sourceMedia[0].path, // Store both audio/video in the same path column
         });
 
-        runPipeline(project.id).catch(console.error);
+        import("./pipeline/processor").then((mod) => mod.queuePipeline(project.id)).catch(console.error);
         res.status(201).json(project);
       } catch (error: any) {
         res.status(500).json({ error: error.message });
@@ -255,7 +272,7 @@ export async function registerRoutes(
           sourceVideoPath: files.sourceVideo[0].path,
         });
 
-        runPipeline(project.id).catch(console.error);
+        import("./pipeline/processor").then((mod) => mod.queuePipeline(project.id)).catch(console.error);
         res.status(201).json(project);
       } catch (error: any) {
         res.status(500).json({ error: error.message });
@@ -294,7 +311,7 @@ export async function registerRoutes(
           captionStyle: extraText,
         });
 
-        runPipeline(project.id).catch(console.error);
+        import("./pipeline/processor").then((mod) => mod.queuePipeline(project.id)).catch(console.error);
         res.status(201).json(project);
       } catch (error: any) {
         res.status(500).json({ error: error.message });

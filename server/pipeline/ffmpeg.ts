@@ -1,16 +1,15 @@
-import { exec } from "child_process";
+import { execFile } from "child_process";
 import { promisify } from "util";
 import path from "path";
 import fs from "fs";
 import type { CaptionStyle } from "../../shared/caption-styles";
 import { getCaptionStyleById } from "../../shared/caption-styles";
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 export async function getMediaDuration(filePath: string): Promise<number> {
-  const { stdout } = await execAsync(
-    `ffprobe -v error -show_entries format=duration -of csv=p=0 "${filePath}"`
-  );
+  const args = ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", filePath];
+  const { stdout } = await execFileAsync("ffprobe", args);
   return parseFloat(stdout.trim());
 }
 
@@ -20,9 +19,15 @@ export async function getVideoInfo(filePath: string): Promise<{
   height: number;
   fps: number;
 }> {
-  const { stdout } = await execAsync(
-    `ffprobe -v error -select_streams v:0 -show_entries stream=width,height,r_frame_rate -show_entries format=duration -of json "${filePath}"`
-  );
+  const args = [
+    "-v", "error",
+    "-select_streams", "v:0",
+    "-show_entries", "stream=width,height,r_frame_rate",
+    "-show_entries", "format=duration",
+    "-of", "json",
+    filePath
+  ];
+  const { stdout } = await execFileAsync("ffprobe", args);
   const data = JSON.parse(stdout);
   const stream = data.streams?.[0] || {};
   const format = data.format || {};
@@ -37,31 +42,25 @@ export async function getVideoInfo(filePath: string): Promise<{
 }
 
 export async function mixAudio(
-  sourceVideoPath: string,
+  sourceVideoPath: string, // Kept for signature compatibility but not strictly needed here
   voiceoverPath: string,
   bgMusicPath: string,
   outputPath: string,
   voiceoverDuration: number
 ): Promise<void> {
-  const cmd = [
-    "ffmpeg -y",
-    `-i "${voiceoverPath}"`,
-    `-i "${bgMusicPath}"`,
-    `-filter_complex`,
-    `"[0:a]volume=10dB[vo];`,
-    `[1:a]atempo=1.1,volume=-10dB[bg];`,
-    `[vo][bg]amix=inputs=2:duration=first:dropout_transition=2[out]"`,
-    `-map "[out]"`,
-    `-t ${voiceoverDuration}`,
-    `-ar 44100`,
-    `"${outputPath}"`,
-  ].join(" ");
+  const args = [
+    "-y",
+    "-i", voiceoverPath,
+    "-i", bgMusicPath,
+    "-filter_complex", "[0:a]volume=10dB[vo];[1:a]atempo=1.1,volume=-10dB[bg];[vo][bg]amix=inputs=2:duration=first:dropout_transition=2[out]",
+    "-map", "[out]",
+    "-t", voiceoverDuration.toString(),
+    "-ar", "44100",
+    outputPath
+  ];
 
-  await execAsync(cmd, { timeout: 300000 });
+  await execFileAsync("ffmpeg", args, { timeout: 300000 });
 }
-
-import { execFile } from "child_process";
-const execFileAsync = promisify(execFile);
 
 export async function autoDucking(
   voiceoverPath: string,
@@ -190,17 +189,19 @@ export async function extractVideoSegments(
     const tc = timecodes[i];
     const outPath = path.join(outputDir, `segment_${i}.mp4`);
 
-    const cmd = [
-      "ffmpeg -y",
-      `-ss ${tc.start}`,
-      `-to ${tc.end}`,
-      `-i "${sourceVideoPath}"`,
-      `-c:v libx264 -preset fast -crf 23`,
-      `-an`,
-      `"${outPath}"`,
-    ].join(" ");
+    const args = [
+      "-y",
+      "-ss", tc.start,
+      "-to", tc.end,
+      "-i", sourceVideoPath,
+      "-c:v", "libx264",
+      "-preset", "fast",
+      "-crf", "23",
+      "-an",
+      outPath
+    ];
 
-    await execAsync(cmd, { timeout: 120000 });
+    await execFileAsync("ffmpeg", args, { timeout: 120000 });
     segmentPaths.push(outPath);
   }
 
@@ -217,66 +218,76 @@ export async function createSandwichVideo(
   voiceoverDuration: number
 ): Promise<void> {
   const concatListPath = path.join(path.dirname(outputClearPath), "concat_list.txt");
-  const concatContent = segmentPaths.map((p) => `file '${p}'`).join("\n");
+  // Important to format for concat demuxer safely
+  const concatContent = segmentPaths.map((p) => `file '${p.replace(/'/g, "'\\''")}'`).join("\n");
   fs.writeFileSync(concatListPath, concatContent);
 
   const concatenatedPath = path.join(path.dirname(outputClearPath), "concatenated.mp4");
 
-  await execAsync(
-    `ffmpeg -y -f concat -safe 0 -i "${concatListPath}" -c:v libx264 -preset fast -crf 23 "${concatenatedPath}"`,
-    { timeout: 300000 }
-  );
+  const concatArgs = [
+    "-y",
+    "-f", "concat",
+    "-safe", "0",
+    "-i", concatListPath,
+    "-c:v", "libx264",
+    "-preset", "fast",
+    "-crf", "23",
+    concatenatedPath
+  ];
+  await execFileAsync("ffmpeg", concatArgs, { timeout: 300000 });
 
-  const clearCmd = [
-    "ffmpeg -y",
-    `-i "${concatenatedPath}"`,
-    `-i "${mixedAudioPath}"`,
-    `-filter_complex`,
-    `"[0:v]split=2[bg][fg];`,
-    `[bg]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=20:5[blurred];`,
-    `[fg]scale=1080:-2,setsar=1[scaled];`,
-    `[blurred][scaled]overlay=(W-w)/2:(H-h)/2[out]"`,
-    `-map "[out]" -map 1:a`,
-    `-c:v libx264 -preset medium -crf 20`,
-    `-c:a aac -b:a 192k`,
-    `-t ${voiceoverDuration}`,
-    `-r 30 -s 1080x1920`,
-    `"${outputClearPath}"`,
-  ].join(" ");
+  const clearArgs = [
+    "-y",
+    "-i", concatenatedPath,
+    "-i", mixedAudioPath,
+    "-filter_complex", "[0:v]split=2[bg][fg];[bg]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=20:5[blurred];[fg]scale=1080:-2,setsar=1[scaled];[blurred][scaled]overlay=(W-w)/2:(H-h)/2[out]",
+    "-map", "[out]",
+    "-map", "1:a",
+    "-c:v", "libx264",
+    "-preset", "medium",
+    "-crf", "20",
+    "-c:a", "aac",
+    "-b:a", "192k",
+    "-t", voiceoverDuration.toString(),
+    "-r", "30",
+    "-s", "1080x1920",
+    outputClearPath
+  ];
 
-  await execAsync(clearCmd, { timeout: 600000 });
+  await execFileAsync("ffmpeg", clearArgs, { timeout: 600000 });
 
-  let captionCmd: string;
   if (subtitlePath && logoPath) {
-    captionCmd = [
-      "ffmpeg -y",
-      `-i "${outputClearPath}"`,
-      `-i "${logoPath}"`,
-      `-filter_complex`,
-      `"[1:v]scale=120:-1[logo];`,
-      `[0:v][logo]overlay=W-w-30:30,`,
-      `ass='${subtitlePath.replace(/'/g, "\\'")}'[out]"`,
-      `-map "[out]" -map 0:a`,
-      `-c:v libx264 -preset medium -crf 20`,
-      `-c:a copy`,
-      `"${outputCaptionPath}"`,
-    ].join(" ");
+    const safeSubPath = subtitlePath.replace(/\\/g, "/").replace(/'/g, "\\'").replace(/:/g, "\\:");
+    const captionArgs = [
+      "-y",
+      "-i", outputClearPath,
+      "-i", logoPath,
+      "-filter_complex", `[1:v]scale=120:-1[logo];[0:v][logo]overlay=W-w-30:30,ass='${safeSubPath}'[out]`,
+      "-map", "[out]",
+      "-map", "0:a",
+      "-c:v", "libx264",
+      "-preset", "medium",
+      "-crf", "20",
+      "-c:a", "copy",
+      outputCaptionPath
+    ];
+    await execFileAsync("ffmpeg", captionArgs, { timeout: 600000 });
   } else if (subtitlePath) {
-    const escapedSubPath = subtitlePath.replace(/\\/g, "/").replace(/'/g, "\\'").replace(/:/g, "\\:");
-    captionCmd = [
-      "ffmpeg -y",
-      `-i "${outputClearPath}"`,
-      `-vf ass='${escapedSubPath}'`,
-      `-c:v libx264 -preset medium -crf 20`,
-      `-c:a copy`,
-      `"${outputCaptionPath}"`,
-    ].join(" ");
+    const safeSubPath = subtitlePath.replace(/\\/g, "/").replace(/'/g, "\\'").replace(/:/g, "\\:");
+    const captionArgs = [
+      "-y",
+      "-i", outputClearPath,
+      "-vf", `ass='${safeSubPath}'`,
+      "-c:v", "libx264",
+      "-preset", "medium",
+      "-crf", "20",
+      "-c:a", "copy",
+      outputCaptionPath
+    ];
+    await execFileAsync("ffmpeg", captionArgs, { timeout: 600000 });
   } else {
-    await execAsync(`cp "${outputClearPath}" "${outputCaptionPath}"`);
-    return;
+    fs.copyFileSync(outputClearPath, outputCaptionPath);
   }
-
-  await execAsync(captionCmd, { timeout: 600000 });
 }
 
 export function generateASS(
