@@ -79,6 +79,7 @@ export async function registerRoutes(
 
         const project = await storage.createProject({
           name: projectName,
+          projectType: "classic",
           status: "processing",
           currentStep: "uploading",
           progress: 5,
@@ -93,6 +94,207 @@ export async function registerRoutes(
           console.error("Pipeline error:", err);
         });
 
+        res.status(201).json(project);
+      } catch (error: any) {
+        res.status(500).json({ error: error.message });
+      }
+    }
+  );
+
+  app.post(
+    "/api/projects/ducking",
+    upload.fields([
+      { name: "voiceover", maxCount: 1 },
+      { name: "bgMusic", maxCount: 1 },
+    ]),
+    async (req, res) => {
+      try {
+        const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+        if (!files.voiceover?.[0] || !files.bgMusic?.[0]) {
+          return res.status(400).json({ error: "Voiceover and bgMusic required" });
+        }
+
+        const project = await storage.createProject({
+          name: (req.body.name as string) || "Auto-Ducked Audio",
+          projectType: "ducking",
+          status: "processing",
+          currentStep: "uploading",
+          progress: 5,
+          voiceoverPath: files.voiceover[0].path,
+          bgMusicPath: files.bgMusic[0].path,
+        });
+
+        runPipeline(project.id).catch(console.error);
+        res.status(201).json(project);
+      } catch (error: any) {
+        res.status(500).json({ error: error.message });
+      }
+    }
+  );
+
+  app.post(
+    "/api/projects/crop",
+    upload.fields([{ name: "sourceVideo", maxCount: 1 }]),
+    async (req, res) => {
+      try {
+        const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+        if (!files.sourceVideo?.[0]) return res.status(400).json({ error: "Source video required" });
+
+        const project = await storage.createProject({
+          name: (req.body.name as string) || "Smart Cropped Video",
+          projectType: "crop",
+          status: "processing",
+          currentStep: "uploading",
+          progress: 5,
+          sourceVideoPath: files.sourceVideo[0].path,
+        });
+
+        runPipeline(project.id).catch(console.error);
+        res.status(201).json(project);
+      } catch (error: any) {
+        res.status(500).json({ error: error.message });
+      }
+    }
+  );
+
+  app.post(
+    "/api/projects/color",
+    upload.fields([{ name: "sourceVideo", maxCount: 1 }]),
+    async (req, res) => {
+      try {
+        const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+        if (!files.sourceVideo?.[0]) return res.status(400).json({ error: "Source video required" });
+
+        const project = await storage.createProject({
+          name: (req.body.name as string) || "Cinematic Color Grade",
+          projectType: "color",
+          status: "processing",
+          currentStep: "uploading",
+          progress: 5,
+          sourceVideoPath: files.sourceVideo[0].path,
+        });
+
+        runPipeline(project.id).catch(console.error);
+        res.status(201).json(project);
+      } catch (error: any) {
+        res.status(500).json({ error: error.message });
+      }
+    }
+  );
+
+  app.post(
+    "/api/projects/motion-track",
+    upload.fields([{ name: "sourceVideo", maxCount: 1 }]),
+    async (req, res) => {
+      try {
+        const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+        if (!files.sourceVideo?.[0]) return res.status(400).json({ error: "Source video required" });
+
+        const overlayText = (req.body.overlayText as string) || "Tracked Object";
+
+        const project = await storage.createProject({
+          name: (req.body.name as string) || "Motion Tracked Video",
+          projectType: "motion-track",
+          status: "processing",
+          currentStep: "uploading",
+          progress: 5,
+          sourceVideoPath: files.sourceVideo[0].path,
+          // temporarily storing overlay text in captionStyle field or similar, or just relying on a DB update later if needed.
+          // since we only process once, we can pass this via extra state, but schema doesn't have a freeform meta column.
+          // let's hijack captionStyle for overlayText
+          captionStyle: overlayText,
+        });
+
+        runPipeline(project.id).catch(console.error);
+        res.status(201).json(project);
+      } catch (error: any) {
+        res.status(500).json({ error: error.message });
+      }
+    }
+  );
+
+  app.post(
+    "/api/projects/isolate",
+    upload.fields([{ name: "sourceMedia", maxCount: 1 }]),
+    async (req, res) => {
+      try {
+        const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+        if (!files.sourceMedia?.[0]) return res.status(400).json({ error: "Source media required" });
+
+        const project = await storage.createProject({
+          name: (req.body.name as string) || "Studio Clear Vocal",
+          projectType: "isolate",
+          status: "processing",
+          currentStep: "uploading",
+          progress: 5,
+          sourceVideoPath: files.sourceMedia[0].path, // Store both audio/video in the same path column
+        });
+
+        runPipeline(project.id).catch(console.error);
+        res.status(201).json(project);
+      } catch (error: any) {
+        res.status(500).json({ error: error.message });
+      }
+    }
+  );
+
+  app.post(
+    "/api/projects/highlights",
+    upload.fields([{ name: "sourceVideo", maxCount: 1 }]),
+    async (req, res) => {
+      try {
+        const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+        if (!files.sourceVideo?.[0]) return res.status(400).json({ error: "Source video required" });
+
+        const project = await storage.createProject({
+          name: (req.body.name as string) || "Podcast Highlights",
+          projectType: "highlights",
+          status: "processing",
+          currentStep: "uploading",
+          progress: 5,
+          sourceVideoPath: files.sourceVideo[0].path,
+        });
+
+        runPipeline(project.id).catch(console.error);
+        res.status(201).json(project);
+      } catch (error: any) {
+        res.status(500).json({ error: error.message });
+      }
+    }
+  );
+
+  app.post(
+    "/api/projects/combo",
+    upload.fields([
+      { name: "sourceVideo", maxCount: 1 },
+      { name: "voiceover", maxCount: 1 },
+      { name: "bgMusic", maxCount: 1 },
+    ]),
+    async (req, res) => {
+      try {
+        const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+        const comboType = req.body.comboType as string; // combo-viral, combo-podcast, etc.
+
+        if (!comboType) {
+          return res.status(400).json({ error: "comboType is required" });
+        }
+
+        // We hijack captionStyle to pass dynamic text inputs like overlayText or specific subtitle styles
+        const extraText = (req.body.extraText as string) || "capcut_green";
+
+        const project = await storage.createProject({
+          name: (req.body.name as string) || `Magic Combo: ${comboType}`,
+          projectType: comboType,
+          status: "processing",
+          currentStep: "uploading",
+          progress: 5,
+          sourceVideoPath: files.sourceVideo?.[0]?.path || null,
+          voiceoverPath: files.voiceover?.[0]?.path || null,
+          bgMusicPath: files.bgMusic?.[0]?.path || null,
+          captionStyle: extraText,
+        });
+
+        runPipeline(project.id).catch(console.error);
         res.status(201).json(project);
       } catch (error: any) {
         res.status(500).json({ error: error.message });

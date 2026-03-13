@@ -8,20 +8,15 @@ export interface IStorage {
   deleteProject(id: number): Promise<void>;
 }
 
-export class MemStorage implements IStorage {
-  private projects: Map<number, Project>;
-  private nextId: number;
+import { db } from "./db";
+import { projects } from "@shared/schema";
+import { eq, desc } from "drizzle-orm";
 
-  constructor() {
-    this.projects = new Map();
-    this.nextId = 1;
-  }
-
+export class DatabaseStorage implements IStorage {
   async createProject(project: InsertProject): Promise<Project> {
-    const id = this.nextId++;
-    const newProject: Project = {
-      id,
+    const [newProject] = await db.insert(projects).values({
       name: project.name || "Untitled Project",
+      projectType: project.projectType || "classic",
       status: project.status || "uploading",
       currentStep: project.currentStep || "uploading",
       progress: project.progress || 0,
@@ -37,33 +32,31 @@ export class MemStorage implements IStorage {
       clearVideoPath: project.clearVideoPath || null,
       captionVideoPath: project.captionVideoPath || null,
       captionStyle: project.captionStyle || "capcut_green",
-      createdAt: new Date(),
-    };
-    this.projects.set(id, newProject);
+    }).returning();
     return newProject;
   }
 
   async getProject(id: number): Promise<Project | undefined> {
-    return this.projects.get(id);
+    const [project] = await db.select().from(projects).where(eq(projects.id, id));
+    return project;
   }
 
   async getAllProjects(): Promise<Project[]> {
-    return Array.from(this.projects.values()).sort(
-      (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
-    );
+    return db.select().from(projects).orderBy(desc(projects.createdAt));
   }
 
   async updateProject(id: number, data: Partial<InsertProject>): Promise<Project | undefined> {
-    const existing = this.projects.get(id);
-    if (!existing) return undefined;
-    const updated = { ...existing, ...data };
-    this.projects.set(id, updated);
+    const [updated] = await db
+      .update(projects)
+      .set(data)
+      .where(eq(projects.id, id))
+      .returning();
     return updated;
   }
 
   async deleteProject(id: number): Promise<void> {
-    this.projects.delete(id);
+    await db.delete(projects).where(eq(projects.id, id));
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();

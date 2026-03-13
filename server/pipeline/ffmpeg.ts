@@ -60,6 +60,125 @@ export async function mixAudio(
   await execAsync(cmd, { timeout: 300000 });
 }
 
+import { execFile } from "child_process";
+const execFileAsync = promisify(execFile);
+
+export async function autoDucking(
+  voiceoverPath: string,
+  bgMusicPath: string,
+  outputPath: string,
+  voiceoverDuration: number
+): Promise<void> {
+  const args = [
+    "-y",
+    "-i", voiceoverPath,
+    "-i", bgMusicPath,
+    "-filter_complex",
+    "[0:a]volume=10dB,asplit=2[sc][vo_out];[1:a]volume=0dB[bg_in];[bg_in][sc]sidechaincompress=threshold=0.01:ratio=5:attack=100:release=1000:makeup=1.5[bg_ducked];[vo_out][bg_ducked]amix=inputs=2:duration=first:dropout_transition=2[out]",
+    "-map", "[out]",
+    "-t", voiceoverDuration.toString(),
+    "-ar", "44100",
+    outputPath
+  ];
+
+  await execFileAsync("ffmpeg", args, { timeout: 300000 });
+}
+
+export async function autoColorGrade(
+  sourceVideoPath: string,
+  outputPath: string
+): Promise<void> {
+  const args = [
+    "-y",
+    "-i", sourceVideoPath,
+    "-vf", "eq=contrast=1.15:brightness=0.02:saturation=1.3:gamma=0.95,unsharp=5:5:1.0:5:5:0.0,curves=m='0/0 0.5/0.4 1/1'",
+    "-c:v", "libx264",
+    "-preset", "medium",
+    "-crf", "20",
+    "-c:a", "copy",
+    outputPath
+  ];
+
+  await execFileAsync("ffmpeg", args, { timeout: 300000 });
+}
+
+export async function motionTrackOverlay(
+  sourceVideoPath: string,
+  outputPath: string,
+  overlayText: string
+): Promise<void> {
+  // Properly escape the user-provided text for the drawtext filter
+  const escapedText = overlayText
+    .replace(/\\/g, "\\\\") // Escape backslashes
+    .replace(/:/g, "\\:")   // Escape colons
+    .replace(/'/g, "");     // Remove single quotes to prevent injection
+
+  const drawtextFilter = [
+    `drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf`,
+    `text='${escapedText}'`,
+    `fontcolor=white`,
+    `fontsize=64`,
+    `box=1`,
+    `boxcolor=black@0.5`,
+    `boxborderw=10`,
+    `x=(w-text_w)/2+((w-text_w)/3)*sin(t*2)`,
+    `y=(h-text_h)/2+((h-text_h)/3)*cos(t*1.5)`
+  ].join(':');
+
+  const args = [
+    "-y",
+    "-i", sourceVideoPath,
+    "-vf", drawtextFilter,
+    "-c:v", "libx264",
+    "-preset", "medium",
+    "-crf", "20",
+    "-c:a", "copy",
+    outputPath
+  ];
+
+  await execFileAsync("ffmpeg", args, { timeout: 300000 });
+}
+
+export async function isolateVocal(
+  sourcePath: string,
+  outputPath: string,
+  isVideo: boolean
+): Promise<void> {
+  const args = [
+    "-y",
+    "-i", sourcePath,
+    "-af", "highpass=f=80,lowpass=f=12000,afftdn=nf=-25,loudnorm=I=-16:LRA=11:TP=-1.5"
+  ];
+
+  if (isVideo) {
+    args.push("-c:v", "copy");
+  }
+
+  args.push("-c:a", "aac", "-b:a", "192k", outputPath);
+
+  await execFileAsync("ffmpeg", args, { timeout: 300000 });
+}
+
+export async function smartCropVideo(
+  sourceVideoPath: string,
+  outputPath: string,
+  duration: number
+): Promise<void> {
+  const args = [
+    "-y",
+    "-i", sourceVideoPath,
+    "-vf", "crop=ih*9/16:ih:iw/2-ih*9/32:0,scale=1080:1920",
+    "-c:v", "libx264",
+    "-preset", "fast",
+    "-crf", "23",
+    "-c:a", "copy",
+    "-t", duration.toString(),
+    outputPath
+  ];
+
+  await execFileAsync("ffmpeg", args, { timeout: 300000 });
+}
+
 export async function extractVideoSegments(
   sourceVideoPath: string,
   timecodes: Array<{ start: string; end: string }>,
