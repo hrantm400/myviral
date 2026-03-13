@@ -8,7 +8,12 @@ import {
   Settings,
   Sparkles,
   Palette,
-  AudioLines
+  AudioLines,
+  Rocket,
+  Zap,
+  Flame,
+  Clapperboard,
+  Gamepad2
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -21,6 +26,14 @@ const NAV_ITEMS = [
   { href: "/vocal-isolate", label: "Vocal Isolator", icon: AudioLines, description: "Studio quality audio cleaning" },
   { href: "/motion-track", label: "Motion Track", icon: Film, description: "Dynamic object tracking" },
   { href: "/style-studio", label: "Style Studio", icon: Type, description: "Custom subtitle fonts & colors" },
+];
+
+const COMBO_ITEMS = [
+  { href: "/combos/viral", label: "The Viral YouTuber", icon: Rocket, description: "Highlights + Crop + Color + Subs" },
+  { href: "/combos/podcast", label: "Pro Studio Podcast", icon: Mic2, description: "Isolate + Ducking + Subs" },
+  { href: "/combos/action", label: "Action Sports Reel", icon: Zap, description: "Crop + Color + Motion Track" },
+  { href: "/combos/cinematic", label: "Cinematic Storyteller", icon: Clapperboard, description: "Sandwich + Color + Ducking" },
+  { href: "/combos/meme", label: "Faceless Meme Factory", icon: Flame, description: "Isolate + Motion Track + Subs" },
 ];
 
 export function Sidebar() {
@@ -51,6 +64,35 @@ export function Sidebar() {
           AI Tools
         </div>
         {NAV_ITEMS.map((item) => {
+          const isActive = location === item.href;
+          const Icon = item.icon;
+
+          return (
+            <Link key={item.href} href={item.href}>
+              <a
+                className={`flex items-start gap-3 px-3 py-3 rounded-xl transition-all duration-200 group ${
+                  isActive
+                    ? "bg-primary/10 text-primary font-medium"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                }`}
+              >
+                <Icon className={`w-5 h-5 shrink-0 mt-0.5 ${isActive ? "text-primary" : "group-hover:text-foreground"}`} />
+                <div>
+                  <div className="text-sm">{item.label}</div>
+                  <div className={`text-[10px] mt-0.5 ${isActive ? "text-primary/70" : "text-muted-foreground/70"}`}>
+                    {item.description}
+                  </div>
+                </div>
+              </a>
+            </Link>
+          );
+        })}
+
+        <div className="text-xs font-semibold text-amber-500 mb-3 px-2 mt-6 uppercase tracking-wider flex items-center gap-2">
+          <Zap className="w-3 h-3" />
+          Magic Combos
+        </div>
+        {COMBO_ITEMS.map((item) => {
           const isActive = location === item.href;
           const Icon = item.icon;
 

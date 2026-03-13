@@ -263,6 +263,45 @@ export async function registerRoutes(
     }
   );
 
+  app.post(
+    "/api/projects/combo",
+    upload.fields([
+      { name: "sourceVideo", maxCount: 1 },
+      { name: "voiceover", maxCount: 1 },
+      { name: "bgMusic", maxCount: 1 },
+    ]),
+    async (req, res) => {
+      try {
+        const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+        const comboType = req.body.comboType as string; // combo-viral, combo-podcast, etc.
+
+        if (!comboType) {
+          return res.status(400).json({ error: "comboType is required" });
+        }
+
+        // We hijack captionStyle to pass dynamic text inputs like overlayText or specific subtitle styles
+        const extraText = (req.body.extraText as string) || "capcut_green";
+
+        const project = await storage.createProject({
+          name: (req.body.name as string) || `Magic Combo: ${comboType}`,
+          projectType: comboType,
+          status: "processing",
+          currentStep: "uploading",
+          progress: 5,
+          sourceVideoPath: files.sourceVideo?.[0]?.path || null,
+          voiceoverPath: files.voiceover?.[0]?.path || null,
+          bgMusicPath: files.bgMusic?.[0]?.path || null,
+          captionStyle: extraText,
+        });
+
+        runPipeline(project.id).catch(console.error);
+        res.status(201).json(project);
+      } catch (error: any) {
+        res.status(500).json({ error: error.message });
+      }
+    }
+  );
+
   app.delete("/api/projects/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
